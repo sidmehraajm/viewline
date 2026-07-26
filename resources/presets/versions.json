@@ -87,6 +87,38 @@
             "type": "ApiUser"
         },
         "image": "media/shot-103.png",
-        "media": "media/shot-103.mp4"
+        "media": "media/shot-103.mp4",
+        "usd": "media/dragon.usd"
+    },
+    {
+        "type": "Version",
+        "id": 2999,
+        "code": "Verion-0001",
+        "project": {
+            "id": 358,
+            "name": "My Super Hero",
+            "type": "Project"
+        },
+        "entity": {
+            "id": 2000,
+            "name": "shot-103",
+            "type": "Shot"
+        },
+        "sg_task": {
+            "id": 3000,
+            "name": "compositing",
+            "type": "Task"
+        },
+        "sg_status_list": "rev",
+        "description": "pipeline test",
+        "created_at": "2026-03-16 05:29:13:PM",
+        "created_by": {
+            "id": 34,
+            "name": "workspace 0.0.1",
+            "type": "ApiUser"
+        },
+        "image": "media/car.png",
+        "media": "media/car.mp4",
+        "usd": "media/car.usd"
     }
 ]

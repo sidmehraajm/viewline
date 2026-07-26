@@ -203,5 +203,55 @@ class WatermarkAction(QtGui.QAction):
         self.setEnabled(enable)
 
 
+class Viewer3dMenubar(QtWidgets.QToolBar):
+
+    def __init__(self, parent, **kwargs):
+
+        super().__init__(parent)
+
+        self.menu_file = QtWidgets.QMenu(self)
+
+        self.action_new = QtGui.QAction(self)
+        self.action_new.setText("New")
+        self.menu_file.addAction(self.action_new)
+
+        self.action_open = QtGui.QAction(self)
+        self.action_open.setText("Open")
+        self.menu_file.addAction(self.action_open)
+
+        # Create a button for the menu
+        self.file_button = QtWidgets.QToolButton()
+        self.file_button.setText("File     ")
+        self.file_button.setMenu(self.menu_file)
+        self.file_button.setPopupMode(QtWidgets.QToolButton.InstantPopup)
+
+        self.addWidget(self.file_button)
+
+
+class Viewer2dMenubar(QtWidgets.QToolBar):
+
+    def __init__(self, parent, **kwargs):
+
+        super().__init__(parent)
+
+        self.menu_file = QtWidgets.QMenu(self)
+
+        self.action_new = QtGui.QAction(self)
+        self.action_new.setText("New")
+        self.menu_file.addAction(self.action_new)
+
+        self.action_open = QtGui.QAction(self)
+        self.action_open.setText("Open")
+        self.menu_file.addAction(self.action_open)
+
+        # Create a button for the menu
+        self.file_button = QtWidgets.QToolButton()
+        self.file_button.setText("File     ")
+        self.file_button.setMenu(self.menu_file)
+        self.file_button.setPopupMode(QtWidgets.QToolButton.InstantPopup)
+
+        self.addWidget(self.file_button)
+
+
 if __name__ == "__main__":
     pass

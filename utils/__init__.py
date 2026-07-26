@@ -559,6 +559,19 @@ def redirectPreset(preset, target):
 
     for context in context_list:
 
+        if context.get("usd"):
+            numid = numericId()
+            extension = fileExtension(context["usd"])
+
+            folder = dirname(context["usd"])
+
+            source = pathResolver(resources.CURRENT_PATH, filename=context["usd"])
+            destination = pathResolver(target, folders=[folder], filename=f"{numid}.{extension}")
+
+            context["usd"] = f"{folder}/{numid}.{extension}"
+
+            copyFile(source, destination)
+
         if context.get("image"):
             numid = numericId()
             extension = fileExtension(context["image"])
@@ -613,6 +626,20 @@ def redirectPreset(preset, target):
                 copyFile(file, destination)
 
     return context_list
+
+
+def getSourceFile(context: dict):
+    usd = context.get("usd")
+    media = context.get("media")
+
+    if usd and media:
+        return None
+    if usd:
+        return "usd"
+    if media:
+        return "media"
+
+    raise ValueError("Neither 'usd' nor 'media' found in context.")
 
 
 if __name__ == "__main__":

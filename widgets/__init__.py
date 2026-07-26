@@ -36,7 +36,7 @@ from viewline import constants
 
 from viewline.ocio import OCIOProcessor
 
-from viewline.playback.player import MediaPlayer
+from viewline.playback.player import ViewlinePlayer
 
 from viewline.widgets.ocio import OcioWidget
 
@@ -52,6 +52,8 @@ from viewline.widgets.buttons import ThemeButton
 
 from viewline.widgets.dialogs import FileDialog
 from viewline.widgets.dialogs import OpenMediaDialog
+
+from viewline.widgets.categorydialog import CategoryDialog
 
 from viewline.widgets.recaps import RecapsWidget
 from viewline.widgets.styles import SetStylesheet
@@ -103,7 +105,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # Display Settings
 
         # Playback controller
-        self.player = MediaPlayer()
+        self.player = ViewlinePlayer()
 
         # Load available projects
         # self.projects = Projects.get()
@@ -179,9 +181,15 @@ class MainWindow(QtWidgets.QMainWindow):
         # Player Signal Connections
         # --------------------------------------------------------------------
 
-        self.player.frame_ready.connect(self.viewframe.viewer.set_frame)
+        self.player.active_stage.connect(self.viewframe.viewer3d.set_stage)
+
+        self.player.frame_ready.connect(self.viewframe.viewer2d.set_frame)
+        self.player.frame_ready.connect(self.viewframe.viewer3d.set_frame)
+
         self.player.frame_changed.connect(self.viewframe.timeline.set_current_frame)
-        self.player.frame_changed.connect(self.viewframe.viewer.set_current_frame)
+        self.player.frame_changed.connect(self.viewframe.viewer2d.set_current_frame)
+        self.player.frame_changed.connect(self.viewframe.viewer3d.set_current_frame)
+
         self.player.cache_changed.connect(self.viewframe.timeline.set_cached_frames)
 
         self.viewframe.timeline.frame_changed.connect(self.seek)
@@ -197,37 +205,55 @@ class MainWindow(QtWidgets.QMainWindow):
         self.viewframe.viewToolbarLayout.open_trigger.connect(self.open_media)
         self.viewframe.viewToolbarLayout.ocio_trigger.connect(self.call_ocio)
         # self.ocio_widget.ocio_changed.connect(self.player.set_ocio)
-        self.ocio_widget.ocio_changed.connect(self.viewframe.viewer.set_ocio)
+        self.ocio_widget.ocio_changed.connect(self.viewframe.viewer2d.set_ocio)
 
         self.viewframe.viewToolbarLayout.filter_trigger.connect(self.call_filter)
 
         self.filter_widget.displayWidget.display_changed.connect(
-            self.viewframe.viewer.display_changed
+            self.viewframe.viewer2d.display_changed
         )
-        self.filter_widget.stylesWidget.style_changed.connect(self.viewframe.viewer.style_changed)
-        self.filter_widget.filterWidget.filter_changed.connect(self.viewframe.viewer.filter_changed)
+        self.filter_widget.stylesWidget.style_changed.connect(self.viewframe.viewer2d.style_changed)
+        self.filter_widget.filterWidget.filter_changed.connect(
+            self.viewframe.viewer2d.filter_changed
+        )
 
         ########################################################################
 
         self.viewframe.viewToolbarLayout.aov_changed.connect(self.player.set_aov)
 
         self.viewframe.viewToolbarLayout.thicknes_changed.connect(
-            self.viewframe.viewer.sketch.set_thickness
+            self.viewframe.viewer2d.sketch.set_thickness
         )
         self.viewframe.viewToolbarLayout.radius_changed.connect(
-            self.viewframe.viewer.sketch.set_eraser_radius
+            self.viewframe.viewer2d.sketch.set_eraser_radius
         )
         self.viewframe.viewToolbarLayout.color_changed.connect(
-            self.viewframe.viewer.sketch.set_color
+            self.viewframe.viewer2d.sketch.set_color
+        )
+
+        self.viewframe.viewToolbarLayout.thicknes_changed.connect(
+            self.viewframe.viewer3d.sketch.set_thickness
+        )
+        self.viewframe.viewToolbarLayout.radius_changed.connect(
+            self.viewframe.viewer3d.sketch.set_eraser_radius
+        )
+        self.viewframe.viewToolbarLayout.color_changed.connect(
+            self.viewframe.viewer3d.sketch.set_color
         )
 
         self.viewframe.viewToolbarLayout.draw_enabled.connect(self.set_draw_enabled)
 
-        self.viewframe.viewToolbarLayout.undo_stack.connect(self.viewframe.viewer.undo_strokes)
-        self.viewframe.viewToolbarLayout.clear_stack.connect(self.viewframe.viewer.clear_strokes)
+        self.viewframe.viewToolbarLayout.undo_stack.connect(self.viewframe.viewer2d.undo_strokes)
+        self.viewframe.viewToolbarLayout.clear_stack.connect(self.viewframe.viewer2d.clear_strokes)
+
+        self.viewframe.viewToolbarLayout.undo_stack.connect(self.viewframe.viewer3d.undo_strokes)
+        self.viewframe.viewToolbarLayout.clear_stack.connect(self.viewframe.viewer3d.clear_strokes)
 
         self.viewframe.viewToolbarLayout.water_marks.connect(
-            self.viewframe.viewer.set_overlay_option
+            self.viewframe.viewer2d.set_overlay_option
+        )
+        self.viewframe.viewToolbarLayout.water_marks.connect(
+            self.viewframe.viewer3d.set_overlay_option
         )
 
         self.viewframe.viewToolbarLayout.trigger_render.connect(self.render)
@@ -236,7 +262,10 @@ class MainWindow(QtWidgets.QMainWindow):
         )
 
         self.recapsWidget.inputWidget.trigger_snapshot.connect(self.render_snapshot)
-        self.viewframe.viewer.render_finished.connect(
+        self.viewframe.viewer2d.render_finished.connect(
+            self.recapsWidget.inputWidget.snapshot_attachment
+        )
+        self.viewframe.viewer3d.render_finished.connect(
             self.recapsWidget.inputWidget.snapshot_attachment
         )
 
@@ -301,7 +330,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def set_current_project(self, project):
         self.current_project = project
-        self.viewframe.viewer.clear()
+        self.viewframe.viewer2d.clear()
+        self.viewframe.viewer3d.clear()
 
     def play_from_playlist(self, play, context):
         """
@@ -316,7 +346,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Clear viewer if media is missing
         if not context.get("media"):
-            self.viewframe.viewer.clear()
+            self.viewframe.viewer2d.clear()
+            self.viewframe.viewer3d.clear()
             self.recapsWidget.outputWidget.clear()
             self.recapsWidget.inputWidget.set_version_context(context)
             return
@@ -330,8 +361,21 @@ class MainWindow(QtWidgets.QMainWindow):
         # Update watermark values
         self.viewframe.viewToolbarLayout.update_watermarks(context, **logs)
 
+        category = utils.getSourceFile(context)
+
+        if category is None:
+            categoryDialog = CategoryDialog(self)
+            categoryDialog.exec()
+
+            if categoryDialog.replay is None:
+                LOGGER.warning("Skipped from media loading")
+                return
+            category = categoryDialog.replay
+
+        self.viewframe.set_viewer_type(category)
+
         # Load media
-        self.openMedia(filepath=context.get("media"))
+        self.openMedia(filepath=context.get(category))
 
         # Start playback if enabled
         if play:
@@ -360,6 +404,9 @@ class MainWindow(QtWidgets.QMainWindow):
             # Update watermark resources
             logs = {"studio_logo": PathPixmap(resources.getIconFilepath(constants.STUDIO_NAME))}
             self.viewframe.viewToolbarLayout.update_watermarks(dict(), **logs)
+
+        if not self.viewframe.viewer:
+            return
 
         # Clear current viewer frame
         self.viewframe.viewer.clear()
@@ -406,7 +453,7 @@ class MainWindow(QtWidgets.QMainWindow):
             return
 
         # Only applies to video playback
-        if self.player.reader.media_type != "movie":
+        if self.player.reader.media_type == "sequence":
             return
 
         self.viewframe.timelineToolbarLayout.reset_fps(
@@ -455,7 +502,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.player.toggle_play_pause()
 
         # Update play button icon
-
         self.viewframe.timelineToolbarLayout.playPauseButton.switch(self.player.is_playing)
 
         # Sync FPS display
@@ -478,10 +524,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.player.set_loop(enabled)
 
     def set_draw_enabled(self, tool, enabled, font):
-        self.viewframe.viewer.set_sketch_enabled(tool, enabled, font)
+        self.viewframe.viewer2d.set_sketch_enabled(tool, enabled, font)
+        self.viewframe.viewer3d.set_sketch_enabled(tool, enabled, font)
 
     def render(self):
-        if not self.viewframe.viewer.current_frame:
+
+        if not self.viewframe.viewer or not self.viewframe.viewer.current_frame:
             return
 
         fileDialog = FileDialog(
@@ -499,7 +547,8 @@ class MainWindow(QtWidgets.QMainWindow):
             self.viewframe.viewer.save_frame(filepath, post_process=False)
 
     def render_snapshot(self, directory, extension="png"):
-        if not self.viewframe.viewer.current_frame:
+
+        if not self.viewframe.viewer or not self.viewframe.viewer.current_frame:
             return
 
         filename = f"frame.{self.viewframe.viewer.current_frame:04d}.{extension}"

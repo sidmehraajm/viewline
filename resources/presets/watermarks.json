@@ -190,7 +190,7 @@
             "enable": true,
             "checked": false,
             "font": {
-                "size": 20,
+                "size": 15,
                 "family": "Noto Sans",
                 "fillColor": [
                     255,
@@ -270,7 +270,7 @@
             "enable": true,
             "checked": false,
             "font": {
-                "size": 25,
+                "size": 15,
                 "family": "Noto Sans",
                 "fillColor": [
                     255,

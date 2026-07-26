@@ -38,8 +38,11 @@ import av
 import numpy
 import OpenImageIO
 
-import utils
-import constants
+from pxr import Usd
+from pxr import UsdGeom
+
+from viewline import utils
+from viewline import constants
 
 
 class MovieReader(object):
@@ -706,6 +709,85 @@ class SequenceReader(object):
     def close(self):
         """Close the movie container."""
         pass
+
+
+class UsdReader(object):
+
+    def __init__(self, path):
+        # Reader Type
+        self.media_type = "usd"
+
+        # Playback FPS
+        self.fps = 24.0
+
+        # AOV Storage
+        self.aovs = dict()
+
+        # Media Path
+        self.path = path
+
+        self.open()
+
+    def open(self):
+        self.stage = Usd.Stage.Open(self.path)
+
+        if self.stage is None:
+            raise RuntimeError(f"Unable to open USD: {self.path}")
+
+    def up_axis(self):
+        result = UsdGeom.GetStageUpAxis(self.stage)
+        return result
+
+    def start_frame(self):
+        return int(self.stage.GetStartTimeCode())
+
+    def end_frame(self):
+        return int(self.stage.GetEndTimeCode())
+
+    def frame_count(self):
+        result = int(self.stage.GetEndTimeCode() - self.stage.GetStartTimeCode()) + 1
+        return result
+
+    def get_fps(self, rounded=2):
+        """Return playback FPS.
+
+        Returns:
+            float:
+                Sequence playback FPS.
+
+        Example:
+            >>> fps = reader.get_fps()
+        """
+
+        self.fps = self.stage.GetTimeCodesPerSecond()
+
+        return self.fps
+
+    def set_fps(self, fps):
+        """Set sequence playback FPS.
+
+        Args:
+            fps (float):
+                Playback frame rate.
+
+        Example:
+            >>> reader.set_fps(24)
+        """
+
+        self.fps = fps or self.get_fps()
+
+    def get_available_aovs(self):
+        """Return available AOV names.
+
+        Returns:
+            list:
+                Available AOV names.
+
+        Example:
+            >>> aovs = reader.get_available_aovs()
+        """
+
+        return list()
 
 
 if __name__ == "__main__":

@@ -67,6 +67,8 @@ from viewline import logger
 from viewline import constants
 
 from viewline.playback.cache import FrameCache
+
+from viewline.playback.reader import UsdReader
 from viewline.playback.reader import MovieReader
 from viewline.playback.reader import SequenceReader
 
@@ -105,8 +107,11 @@ class BasePlayer(QtCore.QObject):
     # Playback state changed.
     timeline_actived = QtCore.Signal(int)
 
+    # Active current usd stage.
+    active_stage = QtCore.Signal(object)
 
-class MediaPlayer(BasePlayer):
+
+class ViewlinePlayer(BasePlayer):
     """High-level media player.
 
     This class automatically creates either a MoviePlayer or SequencePlayer depending on the media type. It provides a
@@ -159,8 +164,10 @@ class MediaPlayer(BasePlayer):
         extension = utils.fileExtension(path, dot=False)
 
         # Create appropriate playback implementation.
-        if extension in ["mp4", "mov", "avi"]:
+        if extension in constants.MOVIE_EXTENSIONS:
             self.player = MoviePlayer()
+        elif extension in constants.USD_EXTENSIONS:
+            self.player = UsdPlayer()
         else:
             self.player = SequencePlayer()
 
@@ -172,6 +179,8 @@ class MediaPlayer(BasePlayer):
         self.player.frame_changed.connect(self.frame_changed)
         self.player.cache_changed.connect(self.cache_changed)
         self.player.timeline_actived.connect(self.timeline_actived)
+
+        self.player.active_stage.connect(self.active_stage)
 
         # Load media.
         self.player.load(path)
@@ -1779,6 +1788,267 @@ class AudioPlayer(QtCore.QObject):
 
         # Create a fresh writable stream.
         self.io_device = self.audio_sink.start()
+
+
+class UsdPlayer(BasePlayer):
+
+    def __init__(self):
+        """Initialize movie player."""
+
+        super().__init__()
+
+        # Playback Reader
+        self.reader = None
+
+        # Playback FPS
+        self.fps = None
+
+        # Timeline State
+        self.start_frame = None
+        self.current_frame = None
+        self.frame_count = 0
+
+        # Playback State
+        self.loop_enabled = False
+        self.is_playing = False
+
+        # Active AOV
+        self.current_aov = "rgb"
+
+        # Frame Cache, Cache decoded frames for faster access.
+        self.cache = FrameCache(max_size=constants.VL_FRAME_CACHE_MAX_SIZE)
+
+        # Playback Timer
+        self.timer = QtCore.QTimer()
+        self.timer.timeout.connect(self.next_frame)
+
+    def load(self, path):
+
+        self.reader = UsdReader(path)
+        self.reader.set_fps(None)
+
+        # Timeline Setup
+        self.frame_count = self.reader.frame_count()
+
+        self.start_frame = constants.VL_START_FRAME + self.reader.start_frame()
+        self.current_frame = self.start_frame
+        self.end_frame = self.start_frame + (self.frame_count - 1)
+
+        # Load First Frame
+        self.update_frame()
+
+        self.active_stage.emit(self.reader.stage)
+
+    def update_frame(self):
+        """Load and display current frame.
+
+        Frame update flow:
+            1. Check frame cache
+            2. Read frame if needed
+            3. Cache frame
+            4. Emit playback signals
+
+        Emits:
+            frame_ready:
+                Current image buffer.
+
+            frame_changed:
+                Current frame number.
+
+            cache_changed:
+                Cached frame list.
+
+        Notes:
+            Cached frames avoid repeated disk reads.
+        """
+        # Validate Reader
+        if not self.reader:
+            return
+
+        # Emit Viewer Signals
+        self.frame_ready.emit(self.current_frame)
+        self.frame_changed.emit(self.current_frame)
+
+    def next_frame(self):
+        if not self.is_playing:
+            return
+
+        self.current_frame += 1
+
+        if self.current_frame >= self.end_frame:
+            if self.loop_enabled:  # Loop Playback
+                self.current_frame = self.start_frame
+            else:
+                self.current_frame = self.end_frame
+                self.pause()
+
+        self.update_frame()
+
+        return
+
+    def toggle_play_pause(self):
+        """Toggle playback state.
+
+        Behavior:
+            - Stops playback if currently playing
+            - Starts playback if currently stopped
+
+        Example:
+            >>> player.toggle_play_pause()
+        """
+
+        # Toggle Playback State
+        if self.is_playing:
+            self.pause()
+        else:
+            self.play()
+
+    def play(self):
+        """Start playback.
+
+        Starts QTimer-based playback using the
+        current FPS value.
+
+        Behavior:
+            - Starts playback timer
+            - Updates playback state
+            - Updates play button UI
+
+        Notes:
+            Playback automatically loops if enabled.
+        """
+
+        # Validate Reader
+        if not self.reader:
+            return
+
+        # Restart From Beginning
+        if self.current_frame >= self.end_frame:
+            self.current_frame = self.start_frame
+
+        # Get Playback FPS
+        fps = self.reader.get_fps()
+
+        # Convert FPS To Timer Interval
+        interval = int(1000 / fps)
+
+        # Start Playback Timer
+        self.timer.start(interval)
+
+        # Update Playback State
+        self.is_playing = True
+
+    def pause(self):
+        """Stop playback.
+
+        Behavior:
+            - Stops playback timer
+            - Updates playback state
+            - Updates play button UI
+            - Restores displayed frame
+
+        Notes:
+            The displayed frame is preserved after stopping.
+        """
+
+        # Stop Playback Timer
+        self.timer.stop()
+
+        # Update Playback State
+        self.is_playing = False
+
+        # Emit the false
+        self.timeline_actived.emit(self.is_playing)
+
+    def forward_frame(self):
+        """Step playback forward by one frame.
+
+        Behavior:
+            - Moves one frame forward
+            - Wraps around at timeline end
+
+        Example:
+            >>> player.forward_frame()
+        """
+
+        # Validate Reader
+        if not self.reader:
+            return
+
+        # Step Forward
+        self.current_frame += 1
+
+        # Wrap Timeline
+        if self.current_frame >= constants.VL_START_FRAME + self.frame_count:
+            self.current_frame = self.start_frame
+
+        # Refresh Viewer Frame
+        self.update_frame()
+
+    def backward_frame(self):
+        """Step playback backward by one frame.
+
+        Behavior:
+            - Moves one frame backward
+            - Wraps around at timeline start
+
+        Example:
+            >>> player.backward_frame()
+        """
+
+        # Validate Reader
+        if not self.reader:
+            return
+
+        # Wrap Timeline
+        if self.current_frame <= self.start_frame:
+            self.current_frame = constants.VL_START_FRAME + self.frame_count
+
+        # Step Backward
+        self.current_frame -= 1
+
+        # Refresh Viewer Frame
+        self.update_frame()
+
+    def set_loop(self, enabled):
+        """Enable or disable loop playback.
+
+        Updates the playback loop state. When loop playback is enabled, the movie automatically restarts after reaching the end.
+
+        Args:
+            enabled (bool):
+                True to enable loop playback, otherwise False.
+
+        Notes:
+            Loop playback is evaluated by :meth:`update_playback` when the current playback time reaches the movie duration.
+
+        See Also:
+            restart()
+            update_playback()
+        """
+
+        # Store the loop playback state.
+        self.loop_enabled = enabled
+
+    def seek(self, frame):
+        """Seek to timeline frame.
+
+        Args:
+            frame (int):
+                Target frame number.
+
+        Example:
+            >>> player.seek(110)
+        """
+
+        # Update Timeline Frame
+        self.current_frame = frame
+
+        # Refresh Viewer Frame
+        self.update_frame()
+
+    def set_fps(self, fps):
+        pass
 
 
 if __name__ == "__main__":

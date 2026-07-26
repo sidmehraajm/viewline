@@ -132,6 +132,10 @@ DEFAULT_SKETCH_COLOR = (255, 170, 0)
 
 OPEN_EXTENSIONS = ["exr", "png", "jpg", "jpeg", "mp4", "mov", "avi"]
 
+MOVIE_EXTENSIONS = ["mp4", "mov", "avi"]
+
+USD_EXTENSIONS = ["usd", "usda", "usdc", "usdz"]
+
 FPS_VALUES = [
     {"code": "23.976- FPS", "value": 23.976},
     {"code": "24- FPS", "value": 24},
