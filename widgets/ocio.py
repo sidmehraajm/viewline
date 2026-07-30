@@ -681,7 +681,7 @@ class OcioWidget(QtWidgets.QWidget):
         # Notify the media player that the OCIO configuration has changed.
         self.ocio_changed.emit(self.ocio_processor)
 
-        print("\n")
+        logger.nextline()
         LOGGER.info(f"State: {self.ocio_processor.enabled}")
         LOGGER.info(f"Color Space: {self.ocio_processor.color_space}")
         LOGGER.info(f"Display: {self.ocio_processor.display}")

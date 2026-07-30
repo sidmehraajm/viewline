@@ -115,6 +115,10 @@ VL_TOOL_ICON = "mc-viewline"
 
 VL_VERSION = "0.0.1-beta.1"
 
+VS_TOOL_NAME = "MC - Viewspan"
+
+VS_TOOL_ICON = "mc-viewline"
+
 WINDOW_SIZE = [1400, 800]
 
 MAXIMIZE = False
@@ -130,9 +134,13 @@ SMALL_FONT_SIZE = 8
 
 DEFAULT_SKETCH_COLOR = (255, 170, 0)
 
-OPEN_EXTENSIONS = ["exr", "png", "jpg", "jpeg", "mp4", "mov", "avi"]
+OPEN_EXTENSIONS = ["exr", "png", "jpg", "jpeg", "mp4", "mov", "avi", "usd", "usda", "usdc", "usdz"]
 
 MOVIE_EXTENSIONS = ["mp4", "mov", "avi"]
+
+IMAGE_EXTENSIONS = ["png", "jpg", "jpeg", "bmp", "gif", "exr"]
+
+MEDIA_EXTENSIONS = ["exr", "png", "jpg", "jpeg", "mp4", "mov", "avi"]
 
 USD_EXTENSIONS = ["usd", "usda", "usdc", "usdz"]
 

@@ -8,28 +8,67 @@ Module:
     ./playback/reader.py
 
 Description:
-    This module provides media reading systems used by the Review Player playback framework.
+    Playback media readers.
 
-The module supports:
-    - Video playback
-    - Image sequence playback
-    - OpenEXR workflows
-    - Multi-layer EXR reading
-    - AOV extraction
-    - Frame decoding
+    This module provides a unified interface for reading different media types supported by Viewline.
+    Each reader abstracts the details of opening media, retrieving playback information, and accessing frame data.
 
-Reader Types:
-    MovieReader:
-        Handles video decoding using PyAV.
+Responsibilities:
+    * Open supported media sources.
+    * Provide a common playback interface.
+    * Read timeline metadata.
+    * Retrieve playback frame rates.
+    * Decode image and video frames.
+    * Load OpenUSD stages.
+    * Expose available AOVs where supported.
 
-    SequenceReader:
-        Handles image sequence reading using OpenImageIO.
+Features:
+    * Image sequence playback.
+    * Movie playback using PyAV.
+    * OpenUSD stage support.
+    * Automatic frame range detection.
+    * FPS management.
+    * Consistent API across media types.
+    * Lightweight reader abstraction.
 
-Notes:
-    - Video playback uses generator-based decoding.
-    - EXR images are converted to uint8 preview images.
-    - Multi-channel EXR workflows are supported.
-    - OCIO processing is handled separately.
+Architecture:
+    Base Reader Concept
+
+        Reader
+        ├── MovieReader
+        ├── SequenceReader
+        └── UsdReader
+
+    Media Types
+
+        MovieReader
+            ├── MP4
+            ├── MOV
+            ├── AVI
+            └── Other PyAV formats
+
+        SequenceReader
+            ├── EXR
+            ├── PNG
+            ├── JPG
+            ├── TIFF
+            └── Other image sequences
+
+        UsdReader
+            ├── USD
+            ├── USDA
+            ├── USDC
+            └── USDZ
+
+Nodes:
+    MovieReader
+        Handles compressed movie playback and frame decoding.
+
+    SequenceReader
+        Reads numbered image sequences and still images.
+
+    UsdReader
+        Opens OpenUSD stages and provides playback metadata.
 """
 
 from __future__ import absolute_import
@@ -712,81 +751,166 @@ class SequenceReader(object):
 
 
 class UsdReader(object):
+    """Read playback information from a USD stage.
+
+    The reader provides a simplified interface around ``Usd.Stage`` for obtaining timeline metadata
+    and playback settings used by the Viewline USD viewer.
+
+    Attributes:
+        media_type (str):
+            Reader type identifier.
+
+        fps (float):
+            Playback frame rate.
+
+        aovs (dict):
+            Dictionary of available render outputs.
+
+        path (str):
+            USD file path.
+
+        stage (Usd.Stage):
+            OpenUSD stage instance.
+    """
 
     def __init__(self, path):
-        # Reader Type
+        """Initialize the USD reader.
+
+        Args:
+            path (str):
+                Path to the USD file.
+        """
+
+        # Reader type.
         self.media_type = "usd"
 
-        # Playback FPS
+        # Default playback frame rate.
         self.fps = 24.0
 
-        # AOV Storage
+        # Cached AOV information.
         self.aovs = dict()
 
-        # Media Path
+        # Source USD file.
         self.path = path
 
+        # Open the stage.
         self.open()
 
     def open(self):
+        """Open the USD stage.
+
+        Loads the USD file into memory and stores the stage object.
+
+        Raises:
+            RuntimeError:
+                If the USD stage cannot be opened.
+
+        Returns:
+            None
+        """
+
+        # Open the USD stage.
         self.stage = Usd.Stage.Open(self.path)
 
+        # Validate the result.
         if self.stage is None:
             raise RuntimeError(f"Unable to open USD: {self.path}")
 
     def up_axis(self):
+        """Return the stage up axis.
+
+        Returns:
+            TfToken:
+                Stage up axis token
+                (UsdGeom.Tokens.y or UsdGeom.Tokens.z).
+        """
+
+        # Read stage up axis.
         result = UsdGeom.GetStageUpAxis(self.stage)
         return result
 
     def start_frame(self):
+        """Return the first frame of the stage.
+
+        Returns:
+            int:
+                Start time code.
+        """
+
+        # Read start frame.
         return int(self.stage.GetStartTimeCode())
 
     def end_frame(self):
+        """Return the last frame of the stage.
+
+        Returns:
+            int:
+                End time code.
+        """
+
+        # Read end frame.
         return int(self.stage.GetEndTimeCode())
 
     def frame_count(self):
+        """Return the total number of playback frames.
+
+        Returns:
+            int:
+                Total frame count.
+        """
+
+        # Compute inclusive frame range.
         result = int(self.stage.GetEndTimeCode() - self.stage.GetStartTimeCode()) + 1
         return result
 
     def get_fps(self, rounded=2):
-        """Return playback FPS.
+        """Return the stage playback frame rate.
+
+        The frame rate is obtained from the USD
+        ``TimeCodesPerSecond`` metadata.
+
+        Args:
+            rounded (int, optional):
+                Reserved for future rounding support.
 
         Returns:
             float:
-                Sequence playback FPS.
-
-        Example:
-            >>> fps = reader.get_fps()
+                Playback frame rate.
         """
 
+        # Read FPS from the stage.
         self.fps = self.stage.GetTimeCodesPerSecond()
 
         return self.fps
 
     def set_fps(self, fps):
-        """Set sequence playback FPS.
+        """Override the playback frame rate.
+
+        If no value is supplied, the stage frame rate is used.
 
         Args:
-            fps (float):
+            fps (float or None):
                 Playback frame rate.
 
-        Example:
-            >>> reader.set_fps(24)
+        Returns:
+            None
         """
 
+        # Store custom or stage FPS.
         self.fps = fps or self.get_fps()
 
     def get_available_aovs(self):
-        """Return available AOV names.
+        """Return the available render outputs.
+
+        This method currently returns an empty list because standard
+        OpenUSD stages do not expose AOV information directly.
 
         Returns:
             list:
                 Available AOV names.
-
-        Example:
-            >>> aovs = reader.get_available_aovs()
         """
 
+        # Placeholder implementation.
         return list()
 
 

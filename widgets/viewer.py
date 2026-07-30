@@ -128,28 +128,17 @@ from __future__ import absolute_import
 
 import numpy
 
-from OpenGL import GL
-
 from PySide6 import QtGui
 from PySide6 import QtCore
 from PySide6 import QtWidgets
-from PySide6 import QtOpenGLWidgets
 
-from viewline import utils
 from viewline import logger
 from viewline import constants
 
+from viewline.playback.reader import SequenceReader
 
-from viewline.widgets.annotations import Sketch
-from viewline.materials.gl_shader import GLShader
-from viewline.materials.gl_texture import GLTexture
-from viewline.materials.gl_screen import FullscreenQuad
-
-from viewline.materials.gl_ocio_shader import OCIOShader
-
-
-from viewline.widgets.viewer2d import Viewer2dLayout
-from viewline.widgets.viewer3d import Viewer3dLayout
+from widgets.pixmaps import NullPixmap
+from widgets.pixmaps import ImageDataPixmap
 
 from viewline.widgets.buttons import TxtButton
 from viewline.widgets.buttons import OpenButton
@@ -172,15 +161,22 @@ from viewline.widgets.buttons import RectangleButton
 from viewline.widgets.buttons import PlayPauseButton
 from viewline.widgets.buttons import WatermarkMenuButton
 
+from viewline.widgets.messagebox import MessageBox
+
 from viewline.widgets.sliders import VolumeSlider
 
 from viewline.widgets.labels import ThicknesLabel
 from viewline.widgets.labels import ToolNameLabel
+from viewline.widgets.labels import ViewspanLabel
 
 from viewline.widgets.comboboxs import FbsCombobox
 from viewline.widgets.comboboxs import AovsCombobox
 
 from viewline.widgets.timeline import TimelineWidget
+
+
+from viewline.widgets.viewer2d import Viewer2dLayout
+from viewline.widgets.viewer3d import Viewer3dLayout
 
 from viewline.widgets.layouts import VerticalLayout
 from viewline.widgets.layouts import HorizontalLayout
@@ -1181,6 +1177,356 @@ class TimelineToolbarLayout(HorizontalLayout):
 
         # Emit FPS update signal
         self.fps_chanaged.emit(value)
+
+
+class ViewspanWidget(QtWidgets.QScrollArea):
+    """Image preview viewer widget.
+
+    This widget provides an interactive image preview area for viewing still images and image sequences.
+    It supports loading images, zooming, panning, drag-and-drop, saving the current preview, and clearing the viewer.
+
+    Responsibilities:
+        - Display preview images.
+        - Support drag-and-drop image loading.
+        - Handle image zooming and panning.
+        - Save and clear preview images.
+        - Report image resolution.
+
+    Features:
+        - Mouse wheel zoom.
+        - Mouse drag panning.
+        - Image sequence support.
+        - Drag-and-drop loading.
+        - High-quality image scaling.
+
+    Attributes:
+        filepath (str):
+            Current source image path.
+
+        previewPixmap (QtGui.QPixmap):
+            Displayed preview image.
+
+        zoom_factor (float):
+            Current zoom scale.
+
+        zoom_step (float):
+            Zoom increment.
+
+        min_zoom (float):
+            Minimum zoom level.
+
+        max_zoom (float):
+            Maximum zoom level.
+
+        is_panning (bool):
+            Indicates whether panning is active.
+
+        pan_start_pos (QtCore.QPoint):
+            Previous mouse position while panning.
+
+        viewspanLabel (ViewspanLabel):
+            Widget displaying the preview image.
+    """
+
+    def __init__(self, parent, *args, **kwargs):
+        """Initialize the preview viewer.
+
+        Args:
+            parent (QtWidgets.QWidget):
+                Parent widget.
+
+            *args:
+                Additional positional arguments.
+
+            **kwargs:
+                Additional keyword arguments.
+        """
+
+        # Initialize the base scroll area.
+        super(ViewspanWidget, self).__init__(parent)
+
+        # Current source image path.
+        self.filepath = None
+
+        # Current zoom factor.
+        self.zoom_factor = 1.0
+
+        # Zoom increment per wheel step.
+        self.zoom_step = 0.1
+
+        # Minimum allowed zoom.
+        self.min_zoom = 0.1
+
+        # Maximum allowed zoom.
+        self.max_zoom = 5.0
+
+        # Indicates whether the user is panning.
+        self.is_panning = False
+
+        # Initial mouse position during panning.
+        self.pan_start_position = QtCore.QPoint()
+
+        # Allow the widget to resize automatically.
+        self.setWidgetResizable(True)
+
+        # Enable drag-and-drop.
+        self.setAcceptDrops(True)
+
+        # Create the scroll area container.
+        self.scrollAreaWidgetContents = QtWidgets.QWidget()
+
+        # Assign the container widget.
+        self.setWidget(self.scrollAreaWidgetContents)
+
+        # Create the preview label.
+        self.viewspanLabel = ViewspanLabel(self)
+
+        # Display the preview label.
+        self.setWidget(self.viewspanLabel)
+
+    def resolution(self):
+        """Return the preview image resolution.
+
+        Returns:
+            str:
+                Image resolution formatted as
+                ``"<width> x <height>"``.
+        """
+
+        # Skip if no image is loaded.
+        if self.previewPixmap.isNull():
+            return
+
+        # Format the resolution string.
+        result = f"{int(self.previewPixmap.width())} x {int(self.previewPixmap.height())}"
+
+        return result
+
+    def update_image(self):
+        """Refresh the displayed preview image."""
+
+        # Skip if no image exists.
+        if self.previewPixmap.isNull():
+            return
+
+        # Calculate scaled width.
+        width = int(self.previewPixmap.width() * self.zoom_factor)
+
+        # Calculate scaled height.
+        height = int(self.previewPixmap.height() * self.zoom_factor)
+
+        # Scale the preview image.
+        scaled_pixmap = self.previewPixmap.scaled(
+            width,
+            height,
+            QtCore.Qt.AspectRatioMode.KeepAspectRatio,
+            QtCore.Qt.TransformationMode.SmoothTransformation,
+        )
+
+        # Display the scaled image.
+        self.viewspanLabel.setPixmap(scaled_pixmap)
+
+    def set_pixmap_preview(self, pixmap):
+        """Display a pixmap preview.
+
+        Args:
+            pixmap (QtGui.QPixmap):
+                Preview image.
+        """
+
+        # Store the pixmap.
+        self.previewPixmap = pixmap
+
+        # Refresh the display.
+        self.update_image()
+
+        # Log the operation.
+        LOGGER.info(f"Succeed, loaded pixmap object")
+
+    def set_image_preview(self, filepath):
+        """Load and display an image.
+
+        Args:
+            filepath (str):
+                Image file path.
+        """
+
+        # Store the file path.
+        self.filepath = filepath
+
+        # Create the image reader.
+        self.reader = SequenceReader(filepath)
+
+        # Read the first frame.
+        image = self.reader.get_frame(constants.VL_START_FRAME)
+
+        # Ensure contiguous memory.
+        image = numpy.ascontiguousarray(image)
+
+        # Convert to a pixmap.
+        self.previewPixmap = ImageDataPixmap(image)
+
+        # Refresh the display.
+        self.update_image()
+
+        # Log the operation.
+        LOGGER.info(f"Succeed, loaded source file {self.filepath}")
+
+    def save_image_preview(self, filepath):
+        """Save the current preview image.
+
+        Args:
+            filepath (str):
+                Output image path.
+        """
+
+        # Ensure an image exists.
+        if self.previewPixmap.isNull():
+            # Notify the user.
+            MessageBox(self, "Critical", "Failure, no image is currently loaded to save.", ["Ok"])
+
+            # Log the warning.
+            LOGGER.warning(f"Failure, no image is currently loaded to save.")
+            return
+
+        # Save the image.
+        self.previewPixmap.save(filepath, "PNG", quality=100)
+
+        # Log the operation.
+        LOGGER.info(f"Succeed, saved your preview image to, {filepath}")
+
+    def clear_preview(self):
+        """Clear the current preview image."""
+
+        # Replace with an empty pixmap.
+        self.previewPixmap = NullPixmap()
+
+        # Refresh the label.
+        self.viewspanLabel.setPixmap(self.previewPixmap)
+
+    def dragEnterEvent(self, event):
+        """Accept supported drag-and-drop operations."""
+
+        # Accept dropped URLs.
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
+
+    def dropEvent(self, event):
+        """Load an image dropped onto the viewer."""
+
+        # Retrieve dropped URLs.
+        urls = event.mimeData().urls()
+
+        # Ignore empty drops.
+        if not urls:
+            return
+
+        # Get the first file.
+        filepath = urls[0].toLocalFile()
+
+        # Supported image formats.
+        valid_extensions = tuple(constants.IMAGE_EXTENSIONS)
+
+        # Load supported images.
+        if filepath.lower().endswith(valid_extensions):
+            self.set_image_preview(filepath)
+            event.acceptProposedAction()
+            return
+
+        # Display an error dialog.
+        MessageBox(
+            self,
+            "Critical",
+            f"Failure, please drop a valid image files.\n{valid_extensions}",
+            ["Ok"],
+        )
+
+        # Log the unsupported file.
+        LOGGER.warning(
+            f"Failure, Unsupported File, Please drop a valid image file {valid_extensions}."
+        )
+
+    def wheelEvent(self, event):
+        """Zoom the preview using the mouse wheel."""
+
+        # Ignore if no image exists.
+        if self.previewPixmap.isNull():
+            return
+
+        # Read wheel movement.
+        angle_delta = event.angleDelta().y()
+
+        # Zoom in.
+        if angle_delta > 0:
+            self.zoom_factor = min(self.max_zoom, self.zoom_factor + self.zoom_step)
+
+        # Zoom out.
+        else:
+            self.zoom_factor = max(self.min_zoom, self.zoom_factor - self.zoom_step)
+
+        # Refresh the display.
+        self.update_image()
+
+        # Consume the event.
+        event.accept()
+
+    def mousePressEvent(self, event):
+        """Start panning the preview."""
+
+        # Ignore if no image exists.
+        if self.previewPixmap.isNull():
+            return
+
+        # Start panning.
+        if event.button() == QtCore.Qt.MouseButton.LeftButton:
+
+            # Enable panning mode.
+            self.is_panning = True
+
+            # Store the initial mouse position.
+            self.pan_start_pos = event.pos()
+
+            # Display the closed-hand cursor.
+            self.setCursor(QtGui.QCursor(QtCore.Qt.CursorShape.ClosedHandCursor))
+            event.accept()
+
+    def mouseMoveEvent(self, event):
+        """Pan the preview image."""
+
+        # Ignore if not panning.
+        if not self.is_panning:
+            return
+
+        # Calculate mouse movement.
+        delta = event.pos() - self.pan_start_pos
+
+        # Update the previous position.
+        self.pan_start_pos = event.pos()
+
+        # Get scrollbars.
+        h_scrollbar = self.horizontalScrollBar()
+        v_scrollbar = self.verticalScrollBar()
+
+        # Scroll horizontally.
+        h_scrollbar.setValue(h_scrollbar.value() - delta.x())
+
+        # Scroll vertically.
+        v_scrollbar.setValue(v_scrollbar.value() - delta.y())
+        event.accept()
+
+    def mouseReleaseEvent(self, event):
+        """Finish the current pan operation."""
+
+        # Ignore other buttons.
+        if event.button() != QtCore.Qt.MouseButton.LeftButton:
+            return
+
+        # Disable panning.
+        self.is_panning = False
+
+        # Restore the default cursor.
+        self.setCursor(QtGui.QCursor(QtCore.Qt.CursorShape.ArrowCursor))
+        event.accept()
 
 
 if __name__ == "__main__":

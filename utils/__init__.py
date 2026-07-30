@@ -69,10 +69,31 @@ LOGGER = logger.getLogger(__name__)
 
 
 def getPlatform():
-    return platform.system().lower()  # ["Windows", "Linux"]
+    """Return the current operating system.
+
+    Returns:
+        str:
+            Lowercase platform name.
+
+            Supported values include::
+
+                "windows"
+                "linux"
+    """
+
+    # Convert platform name to lowercase for consistency.
+    return platform.system().lower()
 
 
 def getUsername():
+    """Return the current system username.
+
+    Returns:
+        str:
+            Username of the currently logged-in user.
+    """
+
+    # Query the operating system for the active user.
     return getpass.getuser()
 
 
@@ -225,15 +246,28 @@ def pathResolver(path, folders=list(), filename=None):
 
 
 def openPath(path):
+    """Open a file or directory using the operating system.
+
+    This function launches the default file manager or associated application for the given path.
+
+    Args:
+        path (str):
+            File or directory to open.
+    """
+
+    # Validate that the target exists.
     if not hasPathExists(path):
         LOGGER.warning(f"Could not found such path, {path}")
         return
 
+    # Detect the current operating system.
     operatingSystem = getPlatform()
 
+    # Windows uses the "start" shell command.
     if operatingSystem == "windows":
         subprocess.Popen(["start", path], shell=True)
 
+    # Linux uses xdg-open.
     if operatingSystem == "linux":
         subprocess.Popen(["xdg-open", path])
 
@@ -351,8 +385,7 @@ def getSequence(path):
 def overrideWatermarkValues(version, watermarks=None, **kwargs):
     """Override watermark values from version data.
 
-    This function injects dynamic values into watermark
-    overlay presets.
+    This function injects dynamic values into watermark overlay presets.
 
     Supported Dynamic Values:
         - Project name
@@ -442,23 +475,76 @@ def overrideWatermarkValues(version, watermarks=None, **kwargs):
 
 
 def getDateTimes(times=None):
+    """Return a formatted date and time string.
+
+    Args:
+        times (datetime.datetime, str, optional):
+            Datetime object to format.
+
+            If None, the current date and time are used.
+
+            If a string is supplied, it is returned unchanged.
+
+    Returns:
+        str:
+            Formatted date/time string.
+    """
+
+    # Preserve existing formatted strings.
     if isinstance(times, str):
         return times
 
+    # Use the supplied time or the current time.
     now = times if times else datetime.datetime.now()
+
+    # Format using the project date format.
     result = now.strftime(constants.DATE_TIME_FORMAT)
     return result
 
 
 def getTempDate(context=None):
+    """Return a timestamp suitable for temporary names.
+
+    The generated string is commonly used for creating unique temporary folders and files.
+
+    Args:
+        context (datetime.datetime, optional):
+            Datetime object to format.
+
+            If None, the current date and time is used.
+
+    Returns:
+        str:
+            Timestamp formatted for temporary resources.
+    """
+
+    # Use the supplied time or the current time.
     now = context if context else datetime.datetime.now()
+
+    # Format into a readable unique timestamp.
     date_time = now.strftime("%Y-%B-%d-%A-%I-%M-%S-%p")
+
     return date_time
 
 
 def tempdir(subfolder=False):
+    """Return the system temporary directory.
+
+    Optionally creates a unique timestamp-based subdirectory path.
+
+    Args:
+        subfolder (bool):
+            Create a unique temporary subfolder.
+
+    Returns:
+        str:
+            Temporary directory path.
+    """
+
+    # Resolve the operating system temporary directory.
     directory = pathResolver(tempfile.gettempdir())
 
+    # Append a timestamp folder when requested.
     if subfolder:
         directory = pathResolver(directory, folders=[getTempDate()])
 
@@ -466,71 +552,202 @@ def tempdir(subfolder=False):
 
 
 def hasFile(filepath):
+    """Determine whether a path contains a filename.
+
+    Args:
+        filepath (str):
+            File or directory path.
+
+    Returns:
+        bool:
+            True if the path contains a file extension,
+            otherwise False.
+    """
+
+    # Split the path into filename and extension.
     dirname, extenstion = os.path.splitext(filepath)
+
+    # A path with an extension is treated as a file.
     return True if extenstion else False
 
 
 def jsonDefaultSerializer(obj):
+    """Serialize unsupported objects for JSON encoding.
+
+    This serializer extends the default JSON encoder by converting application-specific objects into JSON-compatible values.
+
+    Supported object types:
+        - datetime.date
+        - datetime.datetime
+        - QTreeWidgetItem
+
+    Args:
+        obj (object):
+            Object to serialize.
+
+    Returns:
+        object:
+            JSON-compatible representation.
+
+    Raises:
+        TypeError:
+            If the object type is not supported.
+    """
+
+    # Convert date and datetime objects into project date format.
     if isinstance(obj, (datetime.date, datetime.datetime)):
-        # return obj.isoformat()  # e.g. "2025-08-22"
         return obj.strftime(constants.DATE_TIME_FORMAT)
 
-    # Handle QTreeWidgetItem
-    from wsqt import QtWidgets
-
-    if isinstance(obj, QtWidgets.QTreeWidgetItem):
-        return str(obj)
-
+    # Unsupported object type.
     raise TypeError(f"Type {type(obj)} not serializable")
 
 
 def writeJsonFile(context, filepath, serializer=False, indent=4):
+    """Write data to a JSON file.
+
+    Creates parent directories automatically before writing.
+
+    Args:
+        context (dict):
+            Data to write.
+
+        filepath (str):
+            Destination JSON file.
+
+        serializer (bool):
+            Enable the custom JSON serializer.
+
+        indent (int):
+            JSON indentation level.
+    """
+
+    # Ensure the destination directory exists.
     makedirs(filepath)
 
+    # Enable the custom serializer when requested.
     default = jsonDefaultSerializer if serializer else None
 
+    # Write formatted JSON to disk.
     with open(filepath, "w") as target:
         target.write(json.dumps(context, default=default, indent=indent))
 
 
-def readJsonFile(filepath):  # remove this function
+def readJsonFile(filepath):
+    """Read a JSON file.
+
+    Note:
+        This function is deprecated and scheduled for removal.
+
+    Args:
+        filepath (str):
+            JSON file path.
+
+    Returns:
+        dict or list or None:
+            Parsed JSON data if the file exists.
+    """
+
+    # Return if the file does not exist.
     if not hasPathExists(filepath):
         return
 
+    # Load and parse the JSON file.
     with open(filepath, "r") as target:
         return json.load(target)
 
 
 def makedirs(path, open=False):
+    """Create directories if they do not already exist.
+
+    If a file path is supplied, only its parent directory is created.
+
+    Args:
+        path (str):
+            Directory or file path.
+
+        open (bool):
+            Open the directory after creation.
+    """
+
+    # Ignore empty paths.
     if not path:
         return
 
+    # Expand environment variables.
     abspath = os.path.expandvars(path)
+
+    # Convert file paths into their parent directory.
     if hasFile(abspath):
         abspath = os.path.dirname(abspath)
 
+    # Create the directory when required.
     if not os.path.isdir(abspath):
         os.makedirs(abspath, exist_ok=True)
 
+    # Open the directory if requested.
     if open:
         openPath(abspath)
 
 
 def getStatusFieldValue(value):
+    """Return the status code for a status value.
+
+    Searches the project status list and returns the matching status code.
+
+    Args:
+        value (str):
+            Status value.
+
+    Returns:
+        str or None:
+            Matching status code or the original value if
+            no match exists.
+    """
+
+    # Ignore empty values.
     if not value:
         return
 
+    # Find the matching status entry.
     current_status = next(filter(lambda x: x["value"] == value, constants.STATUS_LIST), None)
+
+    # Return the status code when available.
     result = current_status["code"] if current_status else value
 
     return result
 
 
 def environmentValue(key):
+    """Return an environment variable.
+
+    Args:
+        key (str):
+            Environment variable name.
+
+    Returns:
+        str or None:
+            Environment variable value.
+    """
+
+    # Read the environment variable.
     return os.getenv(key)
 
 
 def viewlinePath(subfolder=None):
+    """Return the Viewline profile directory.
+
+    The path is resolved from the VIEW_LINE_PROFILE_ROOT environment variable.
+
+    Args:
+        subfolder (str, optional):
+            Additional folder inside the Viewline profile.
+
+    Returns:
+        str:
+            Resolved Viewline profile path.
+    """
+
+    # Build the Viewline profile path.
     result = pathResolver(
         environmentValue("VIEW_LINE_PROFILE_ROOT"), folders=["viewline", subfolder]
     )
@@ -539,39 +756,113 @@ def viewlinePath(subfolder=None):
 
 
 def numericId():
+    """Generate a unique numeric identifier.
+
+    The identifier is derived from a UUID time component and is suitable for temporary filenames and resource identifiers.
+
+    Returns:
+        int:
+            Unique numeric identifier.
+    """
+
+    # Generate a time-based UUID.
     id = uuid.uuid1()
+
+    # Return the numeric time component.
     return int(id.time_low)
 
 
 def copyFile(source, destination, delete=False):
+    """Copy a file to a new location.
+
+    Creates the destination directory automatically before copying.
+    If the source and destination resolve to the same location,
+    no copy is performed.
+
+    Args:
+        source (str):
+            Source file path.
+
+        destination (str):
+            Destination file path.
+
+        delete (bool):
+            Reserved for future support to remove the source file
+            after copying.
+
+    Returns:
+        str:
+            Absolute path of the copied file.
+    """
+
+    # Ensure the destination directory exists.
     makedirs(destination)
 
+    # Skip copying when both paths are identical.
     if pathResolver(source) == pathResolver(destination):
         return pathResolver(source)
 
+    # Copy the file while preserving metadata.
     copiedFile = shutil.copy2(source, destination)
 
+    # Return the normalized destination path.
     return pathResolver(copiedFile)
 
 
 def redirectPreset(preset, target):
+    """Redirect preset resources to a target directory.
+
+    Copies all preset resources into the specified directory and
+    updates the preset context to reference the newly created files.
+
+    Supported resource types:
+        - USD files
+        - Images
+        - Movie files
+        - Image sequences
+
+    Args:
+        preset (str):
+            Preset resource name.
+
+        target (str):
+            Destination directory.
+
+    Returns:
+        list[dict]:
+            Updated preset context list.
+    """
+
+    # Load preset definition.
     context_list = resources.getPreset(preset)
 
+    # Process every preset entry.
     for context in context_list:
 
+        # ------------------------------------------------------------------
+        # Redirect USD files.
+        # ------------------------------------------------------------------
         if context.get("usd"):
+
+            # Generate a unique filename.
             numid = numericId()
             extension = fileExtension(context["usd"])
 
+            # Resolve source and destination paths.
             folder = dirname(context["usd"])
 
             source = pathResolver(resources.CURRENT_PATH, filename=context["usd"])
             destination = pathResolver(target, folders=[folder], filename=f"{numid}.{extension}")
 
+            # Update the preset reference.
             context["usd"] = f"{folder}/{numid}.{extension}"
 
+            # Copy the resource.
             copyFile(source, destination)
 
+        # ------------------------------------------------------------------
+        # Redirect image files.
+        # ------------------------------------------------------------------
         if context.get("image"):
             numid = numericId()
             extension = fileExtension(context["image"])
@@ -581,33 +872,45 @@ def redirectPreset(preset, target):
             source = pathResolver(resources.CURRENT_PATH, filename=context["image"])
             destination = pathResolver(target, folders=[folder], filename=f"{numid}.{extension}")
 
+            # Update the preset reference.
             context["image"] = f"{folder}/{numid}.{extension}"
 
+            # Copy the resource.
             copyFile(source, destination)
 
+        # ------------------------------------------------------------------
+        # Redirect media files.
+        # ------------------------------------------------------------------
         if context.get("media"):
-            # Resolve source files
+
+            # Resolve the original media path.
             filepath = pathResolver(resources.CURRENT_PATH, filename=context["media"])
+
+            # Detect movie or image sequence.
             files = getSequence(filepath)
 
             if not files:
                 continue
 
-            # Generate unique numeric ID and extract path components once
+            # Generate a unique identifier.
             numid = numericId()
             folder = dirname(context["media"])
             base_name = fileName(context["media"])
             extension = fileExtension(context["media"])
 
+            # --------------------------------------------------------------
+            # Image sequence.
+            # --------------------------------------------------------------
             if len(files) > 1:
-                # For image sequences (e.g., render.####.exr)
+
+                # Extract sequence padding (####).
                 name_parts = base_name.rsplit(".", 1)
                 padding = name_parts[1] if len(name_parts) > 1 else "####"  # e.g., "####"
 
-                # Update context once for the whole sequence pattern
+                # Update the sequence pattern.
                 context["media"] = f"{folder}/{numid}.{padding}.{extension}"
 
-                # Copy each file in the sequence
+                # Copy every frame.
                 for file in files:
                     # Assuming individual files in the sequence have actual frame numbers,
                     # we extract the frame number from the current file name to keep them unique
@@ -616,30 +919,97 @@ def redirectPreset(preset, target):
                     new_filename = f"{numid}.{actual_frame}.{extension}"
                     destination = pathResolver(target, folders=[folder], filename=new_filename)
                     copyFile(file, destination)
+
+            # --------------------------------------------------------------
+            # Single media file.
+            # --------------------------------------------------------------
             else:
                 # For single files (e.g., .mp4)
                 file = files[0]
                 new_filename = f"{numid}.{extension}"
 
+                # Update the preset reference.
                 context["media"] = f"{folder}/{new_filename}"
                 destination = pathResolver(target, folders=[folder], filename=new_filename)
+
+                # Copy the media file.
                 copyFile(file, destination)
 
     return context_list
 
 
-def getSourceFile(context: dict):
+def getSourceFile(context):
+    """Return the available source type.
+
+    Determines whether a preset references a USD scene or a media file.
+
+    Args:
+        context (dict):
+            Preset context.
+
+    Returns:
+        str:
+            Either ``"usd"`` or ``"media"``.
+
+    Raises:
+        ValueError:
+            If neither source exists.
+    """
+
+    # Retrieve source entries.
     usd = context.get("usd")
     media = context.get("media")
 
+    # Invalid configuration.
     if usd and media:
         return None
+
+    # USD source.
     if usd:
         return "usd"
+
+    # Media source.
     if media:
         return "media"
 
+    # No supported source found.
     raise ValueError("Neither 'usd' nor 'media' found in context.")
+
+
+def getSourceCategory(filepath):
+    """Return the Viewline source category.
+
+    Determines whether the supplied file is a supported USD scene or media file based on its extension.
+
+    Args:
+        filepath (str):
+            File path.
+
+    Returns:
+        str or None:
+            One of:
+
+                - "usd"
+                - "media"
+                - None
+    """
+
+    # Extract the file extension.
+    extension = fileExtension(filepath, dot=False)
+
+    # Check for supported USD formats.
+    if extension in constants.USD_EXTENSIONS:
+        result = "usd"
+
+    # Check for supported media formats.
+    elif extension in constants.MEDIA_EXTENSIONS:
+        result = "media"
+
+    # Unsupported file type.
+    else:
+        result = None
+
+    return result
 
 
 if __name__ == "__main__":

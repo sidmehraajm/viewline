@@ -80,13 +80,16 @@ Notes:
 
 from __future__ import absolute_import
 
+import importlib
+
 from PySide6 import QtCore
 from PySide6 import QtWidgets
 
 from viewline import utils
 from viewline import logger
 from viewline import constants
-from viewline import resources
+
+from viewline import scripts
 
 from viewline.widgets.styles import WaitCursor
 
@@ -101,6 +104,8 @@ from viewline.widgets.buttons import AttachButton
 from viewline.widgets.buttons import SnapshotButton
 
 from viewline.widgets.messagebox import MessageBox
+
+from viewline.widgets.viewspan import ViewspanWindow
 
 from viewline.widgets.layouts import VerticalLayout
 from viewline.widgets.layouts import VerticalSplitter
@@ -278,15 +283,8 @@ class OutputWidget(QtWidgets.QScrollArea):
 
         with WaitCursor():
             # Load project versions
-
-            import scripts
-            import importlib
-
             importlib.reload(scripts)
-
-            from scripts import Review
-
-            valid, result = Review.get(self.context, reverse=True)
+            valid, result = scripts.Review.get(self.context, reverse=True)
 
         if not valid:
             LOGGER.warning("Could not find valid task")
@@ -314,6 +312,8 @@ class ReviewOutFrame(QtWidgets.QFrame):
 
         self.context = args[0]
         self.attachments = args[1]
+
+        self.viewspan = None
 
         sizepolicy = QtWidgets.QSizePolicy(
             QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Preferred
@@ -369,14 +369,9 @@ class ReviewOutFrame(QtWidgets.QFrame):
                 self.imageViewLabel.clicked.connect(self.openThumbnail)
 
     def openThumbnail(self, pixmap):
-        context = resources.getTool("viewspan")
-        context["artisan"] = utils.getArtisanContext()
-
-        from viewline.widgets import viewspan
-
-        self.viewspan_window = viewspan.MainWindow(parent=None, **context)
-        self.viewspan_window.set_pixmap_preview(pixmap, self.thumbnail_titile)
-        self.viewspan_window.show()
+        self.viewspan = ViewspanWindow(parent=None)
+        self.viewspan.set_pixmap_preview(pixmap, self.thumbnail_titile)
+        self.viewspan.show()
 
 
 class InputWidget(QtWidgets.QFrame):
@@ -704,9 +699,8 @@ class InputWidget(QtWidgets.QFrame):
         }
 
         with WaitCursor():
-            from scripts import Review
-
-            valid, message = Review.set(context)
+            importlib.reload(scripts)
+            valid, message = scripts.Review.set(context)
 
         if valid:  # Success
             MessageBox(self, "Information", f"Succeed, {message}", ["Ok"])

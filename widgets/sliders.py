@@ -151,11 +151,6 @@ class NormalSlider(QtWidgets.QSlider):
         self.setOrientation(QtCore.Qt.Orientation.Horizontal)
         self.setTickPosition(QtWidgets.QSlider.TickPosition.NoTicks)
 
-        # sizePolicy = QtWidgets.QSizePolicy(
-        #    QtWidgets.QSizePolicy.Policy.Preferred, QtWidgets.QSizePolicy.Policy.Preferred
-        # )
-        # self.setSizePolicy(sizePolicy)
-
 
 if __name__ == "__main__":
     pass

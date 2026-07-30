@@ -320,11 +320,6 @@ class MainWindow(QtWidgets.QMainWindow):
         """
         Setup the main window icon.
         """
-
-        # icon = QtGui.QIcon()
-        # icon.addFile("D:/works/developments/viewline/resources/icons/mc-viewline.png")
-        # self.setWindowIcon(icon)
-
         pixmap = NamePixmapIcon(constants.VL_TOOL_ICON)
         self.setWindowIcon(pixmap)
 
@@ -404,6 +399,10 @@ class MainWindow(QtWidgets.QMainWindow):
             # Update watermark resources
             logs = {"studio_logo": PathPixmap(resources.getIconFilepath(constants.STUDIO_NAME))}
             self.viewframe.viewToolbarLayout.update_watermarks(dict(), **logs)
+
+            category = utils.getSourceCategory(filepath)
+
+            self.viewframe.set_viewer_type(category)
 
         if not self.viewframe.viewer:
             return
@@ -547,7 +546,6 @@ class MainWindow(QtWidgets.QMainWindow):
             self.viewframe.viewer.save_frame(filepath, post_process=False)
 
     def render_snapshot(self, directory, extension="png"):
-
         if not self.viewframe.viewer or not self.viewframe.viewer.current_frame:
             return
 
@@ -593,6 +591,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
         if self.filter_widget:
             self.filter_widget.close()
+
+        self.viewframe.viewer2d.clear()
+        self.viewframe.viewer3d.clear()
 
         event.accept()
 

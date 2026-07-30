@@ -391,46 +391,172 @@ class ToolNameLabel(QtWidgets.QLabel):
 
 
 class ImageViewLabel(QtWidgets.QLabel):
+    """Image thumbnail label.
 
+    This widget displays an image thumbnail loaded from a file and emits a signal when the thumbnail is clicked.
+    The image is automatically scaled while preserving its aspect ratio.
+
+    Attributes:
+        clicked (QtCore.Signal):
+            Emitted when the thumbnail is clicked.
+
+        filepath (str):
+            Path to the source image.
+
+        pixmap (PathPixmap):
+            Original image pixmap.
+
+        resized_pixmap (QtGui.QPixmap):
+            Scaled thumbnail pixmap.
+
+        width (int):
+            Thumbnail width.
+
+        height (int):
+            Thumbnail height.
+    """
+
+    # Emitted when the thumbnail is clicked.
     clicked = QtCore.Signal(PathPixmap)  # Define a custom signal for clicks
 
     def __init__(self, parent, filepath, **kwargs):
+        """Initialize the image thumbnail widget.
+
+        Args:
+            parent (QtWidgets.QWidget):
+                Parent widget.
+
+            filepath (str):
+                Image file path.
+
+            **kwargs:
+                Optional keyword arguments.
+
+                width (int):
+                    Thumbnail width.
+
+                height (int):
+                    Thumbnail height.
+        """
+
+        # Initialize the base QLabel.
         super(ImageViewLabel, self).__init__(parent)
 
+        # Store the image path.
         self.filepath = filepath
+
+        # Store the original pixmap.
         self.pixmap = None
 
+        # Thumbnail width.
         self.width = kwargs.get("width") or 200
+
+        # Thumbnail height.
         self.height = kwargs.get("height") or 112
 
+        # Load the thumbnail image.
         self.setThumbnail()
+
+        # Align the image to the left.
         self.setAlignment(QtCore.Qt.AlignLeading | QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
 
+        # Preserve the original aspect ratio.
         self.setScaledContents(False)
 
     def setThumbnail(self, filepath=None):
+        """Load and display the thumbnail image.
+
+        The image is loaded from disk, scaled to the configured thumbnail size, and displayed while maintaining its  aspect ratio.
+
+        Args:
+            filepath (str, optional):
+                Override image path.
+        """
+
+        # Use the provided path or the stored path.
         filepath = filepath or self.filepath
 
+        # Ignore empty paths.
         if not filepath:
             return
 
+        # Load the source image.
         self.pixmap = PathPixmap(filepath)
 
+        # Ignore invalid images.
         if self.pixmap.isNull():
             return
 
+        # Generate a scaled thumbnail.
         self.resized_pixmap = self.pixmap.scaled(
             self.width, self.height, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation
         )
 
+        # Display the thumbnail.
         self.setPixmap(self.resized_pixmap)
+
+        # Keep the pixmap aspect ratio.
         self.setScaledContents(False)
 
     def mousePressEvent(self, event):
-        # Emit the custom clicked signal when the label is clicked
+        """Handle mouse press events.
+
+        Emits the clicked signal when the left mouse button
+        is pressed.
+
+        Args:
+            event (QtGui.QMouseEvent):
+                Mouse press event.
+        """
+
+        # Handle left mouse clicks.
         if event.button() == QtCore.Qt.LeftButton:
+            # Notify listeners.
             self.clicked.emit(self.pixmap)
+
+        # Continue normal event processing.
         super().mousePressEvent(event)
+
+
+class ViewspanLabel(QtWidgets.QLabel):
+    """Viewer placeholder label.
+
+    This label displays a centered message when no media is loaded in the viewer.
+    It provides a simple placeholder indicating that users can drag and drop an image or use the File menu to open supported media.
+
+    Signals:
+        clicked (QtCore.Signal):
+            Emitted when the label is clicked.
+    """
+
+    # Emitted when the label is clicked.
+    clicked = QtCore.Signal()
+
+    def __init__(self, parent, *args, **kwargs):
+        """Initialize the placeholder label.
+
+        Args:
+            parent (QtWidgets.QWidget):
+                Parent widget.
+
+            *args:
+                Additional positional arguments.
+
+            **kwargs:
+                Additional keyword arguments.
+        """
+
+        # Initialize the base QLabel.
+        super(ViewspanLabel, self).__init__(parent)
+
+        # Display the placeholder message.
+        self.setText("Drag & Drop an image here or go to File -> Open.")
+
+        # Center the text inside the label.
+        self.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+
+        # Preserve the original text rendering.
+        self.setScaledContents(False)
 
 
 if __name__ == "__main__":

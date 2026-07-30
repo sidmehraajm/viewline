@@ -116,6 +116,13 @@ class ReviewTextEdit(QtWidgets.QTextEdit):
         return self.toPlainText().strip()
 
     def setValue(self, value):
+        """Set QTextEdit text value
+
+        Args:
+            value (str):
+                text value..
+        """
+
         self.setText(value)
 
 

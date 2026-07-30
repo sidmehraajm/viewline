@@ -71,6 +71,7 @@ from OpenGL import GL
 
 from pxr import Gf
 from pxr import Glf
+from pxr import Usd
 from pxr import UsdGeom
 from pxr import UsdImagingGL
 
@@ -123,6 +124,16 @@ class Viewer3dLayout(VerticalLayout):
         # Add the viewer below the menu bar.
         self.addWidget(self.viewer3d)
 
+        self.viewer3dMenubar.shading_changed.connect(self.viewer3d.set_shading_mode)
+        self.viewer3dMenubar.complexity_changed.connect(self.viewer3d.set_complexity)
+        self.viewer3dMenubar.purposes_changed.connect(self.viewer3d.set_purposes)
+        self.viewer3dMenubar.materials_enable.connect(self.viewer3d.set_materials_enabled)
+        self.viewer3dMenubar.grid_enable.connect(self.viewer3d.set_grid_enabled)
+
+        self.viewer3d.stage_loaded.connect(self.viewer3dMenubar.set_cameras)
+
+        self.viewer3dMenubar.camera_changed.connect(self.viewer3d.set_current_camera)
+
 
 class GLViewer3d(GLViewer):
     """OpenGL viewport for rendering USD scenes through Hydra.
@@ -141,6 +152,8 @@ class GLViewer3d(GLViewer):
         background_color: OpenGL viewport background colour.
         camera: Camera used to control the USD viewport.
     """
+
+    stage_loaded = QtCore.Signal(list)
 
     def __init__(self, parent=None):
         """Create and initialise the USD OpenGL viewer.
@@ -182,8 +195,13 @@ class GLViewer3d(GLViewer):
         # Store the OpenGL viewport background colour.
         self.background_color = (0.2, 0.2, 0.2, 1.0)
 
+        self.guide_stage = None
+
         # Create the viewport camera.
         self.camera = ViewCamera()
+
+        self.scene_camera = None
+        self.use_scene_camera = False
 
     def initializeGL(self):
         """Initialise the OpenGL and Hydra rendering environment.
@@ -196,6 +214,9 @@ class GLViewer3d(GLViewer):
 
         # Create the Hydra imaging engine.
         self.engine = UsdImagingGL.Engine()
+
+        logger.nextline()
+
         LOGGER.info(f"Hydra engine created: {self.engine}")
 
         # Configure the Hydra render parameters.
@@ -251,6 +272,9 @@ class GLViewer3d(GLViewer):
         if self.engine is None:
             return
 
+        # Update the camera for the current animation frame.
+        self.update_camera()
+
         # Update the viewport display rectangle.
         self.update_display_rect()
 
@@ -258,7 +282,10 @@ class GLViewer3d(GLViewer):
         self.render_params.frame = self.current_frame
 
         # Render the USD stage through Hydra.
-        self.engine.Render(self.stage.GetPseudoRoot(), self.render_params)
+        # self.engine.Render(self.stage.GetPseudoRoot(), self.render_params)
+
+        root = self.stage.GetDefaultPrim()
+        self.engine.Render(root, self.render_params)
 
         # Draw annotations and other viewer overlays.
         self.draw_overlay()
@@ -270,10 +297,28 @@ class GLViewer3d(GLViewer):
         """Clear the current USD stage and reset the viewer contents."""
 
         # Clear common viewer state and the OpenGL framebuffer.
-        super().clear()
+        # super().clear()
 
-        # Remove the currently loaded USD stage.
+        self.makeCurrent()
+
+        GL.glClearColor(*self.background_color)
+        GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
+
+        # Ensure all pending OpenGL commands are completed.
+        GL.glFlush()
+
         self.stage = None
+        self.current_frame = None
+        self.use_scene_camera = False
+        self.camera = ViewCamera()
+
+        self.engine = UsdImagingGL.Engine()
+        self.engine.SetRenderBufferSize(Gf.Vec2i(self.width(), self.height()))
+        self.engine.SetRenderViewport(Gf.Vec4d(0, 0, self.width(), self.height()))
+
+        self.doneCurrent()
+
+        self.update()
 
     def update_display_rect(self):
         """Update the display rectangle to cover the entire viewport."""
@@ -306,8 +351,13 @@ class GLViewer3d(GLViewer):
         if stage is None:
             return
 
+        # self.engine = UsdImagingGL.Engine()
+
+        self.engine.ClearSelected()
+
         # Store the new USD stage.
         self.stage = stage
+        self.stage.Reload()
 
         # Read the stage up-axis.
         up_axis = UsdGeom.GetStageUpAxis(self.stage)
@@ -315,11 +365,22 @@ class GLViewer3d(GLViewer):
         # Configure the camera for the stage coordinate system.
         self.camera.set_up_axis(up_axis)
 
-        # Create the viewport grid for the loaded stage.
-        self.create_grid(size=20, spacing=1.0)
-
         # Frame the loaded scene in the viewport.
         self.frame_all()
+
+        camera_prims = self.get_camera_prims()
+
+        self.stage_loaded.emit(camera_prims)
+
+    def get_camera_prims(self):
+        result = list()
+
+        for prim in self.stage.TraverseAll():
+            if not prim.IsA(UsdGeom.Camera):
+                continue
+            result.append((prim.GetName(), prim.GetPath().pathString, False))
+
+        return result
 
     def create_render_param(self):
         """Create and configure Hydra rendering parameters.
@@ -340,7 +401,7 @@ class GLViewer3d(GLViewer):
         self.render_params.enableSceneMaterials = False
 
         # Display proxy geometry.
-        self.render_params.showProxy = True
+        self.render_params.showProxy = False
 
         # Display guide geometry.
         self.render_params.showGuides = True
@@ -352,10 +413,77 @@ class GLViewer3d(GLViewer):
         self.render_params.cullStyle = UsdImagingGL.CullStyle.CULL_STYLE_NOTHING
 
         # Set the Hydra scene complexity.
-        self.render_params.complexity = 1.0
+        self.render_params.complexity = 1.0  # low
 
         # Disable automatic gamma correction.
         self.render_params.gammaCorrectColors = False
+
+    def set_current_camera(self, camera):
+        """Use a camera prim from the USD stage."""
+
+        if camera == "/default":
+            self.use_scene_camera = False
+        else:
+            prim = self.stage.GetPrimAtPath(camera)
+
+            if not prim or not prim.IsA(UsdGeom.Camera):
+                return False
+
+            self.scene_camera = UsdGeom.Camera(prim)
+            self.use_scene_camera = True
+
+            self.update_view()
+
+        return True
+
+    def update_camera(self):
+        """Update the Hydra camera from the current viewport camera."""
+
+        # Ignore camera updates before Hydra initialisation.
+        if self.engine is None:
+            return
+
+        # Protect against invalid viewport dimensions.
+        width = max(self.width(), 1)
+        height = max(self.height(), 1)
+
+        # Calculate the current viewport aspect ratio.
+        aspect = width / height
+
+        if self.use_scene_camera:
+            view_matrix, projection_matrix = self.get_scene_camera_matrices(aspect)
+
+        else:
+            # Generate the current camera view matrix.
+            view_matrix = self.camera.get_view_matrix()
+
+            # Generate the current projection matrix.
+            projection_matrix = self.create_projection_matrix(aspect)
+
+        # Apply the camera state to Hydra.
+        self.engine.SetCameraState(view_matrix, projection_matrix)
+
+    def get_scene_camera_matrices(self, aspect):
+        if self.scene_camera is None:
+            raise RuntimeError("No scene camera assigned.")
+
+        # Evaluate the camera at the current frame.
+        time = Usd.TimeCode(self.current_frame)
+
+        # Returns a fully evaluated Gf.Camera.
+        gf_camera = self.scene_camera.GetCamera(time)
+
+        # Camera frustum.
+        frustum = gf_camera.frustum
+
+        # View matrix.
+        view_matrix = frustum.ComputeViewMatrix()
+
+        # Projection matrix.
+        # projection_matrix = frustum.ComputeProjectionMatrix()
+        projection_matrix = Gf.Matrix4d(frustum.ComputeProjectionMatrix())
+
+        return view_matrix, projection_matrix
 
     def create_lighting_state(self):
         """Create the viewport head light and material state.
@@ -395,29 +523,6 @@ class GLViewer3d(GLViewer):
 
         # Store the head light in the active lighting collection.
         self.lights = [self.head_light]
-
-    def update_camera(self):
-        """Update the Hydra camera from the current viewport camera."""
-
-        # Ignore camera updates before Hydra initialisation.
-        if self.engine is None:
-            return
-
-        # Protect against invalid viewport dimensions.
-        width = max(self.width(), 1)
-        height = max(self.height(), 1)
-
-        # Calculate the current viewport aspect ratio.
-        aspect = width / height
-
-        # Generate the current camera view matrix.
-        view_matrix = self.camera.get_view_matrix()
-
-        # Generate the current projection matrix.
-        projection_matrix = self.create_projection_matrix(aspect)
-
-        # Apply the camera state to Hydra.
-        self.engine.SetCameraState(view_matrix, projection_matrix)
 
     def update_head_light(self):
         """Update the viewport head light from the camera position."""
@@ -542,8 +647,10 @@ class GLViewer3d(GLViewer):
         # Define the root transform for viewport-only geometry.
         grid_path = "/__Viewport/Grid"
 
+        self.guide_stage = Usd.Stage.CreateInMemory()
+
         # Create the grid transform prim.
-        UsdGeom.Xform.Define(self.stage, grid_path)
+        UsdGeom.Xform.Define(self.guide_stage, grid_path)
 
         # Create the minor grid lines.
         self.create_grid_lines(
@@ -721,6 +828,9 @@ class GLViewer3d(GLViewer):
         if self.stage is None:
             return
 
+        # Store the current animation frame.
+        self.current_frame = frame
+
         # Request a repaint using the current animation frame.
         self.update()
 
@@ -783,6 +893,26 @@ class GLViewer3d(GLViewer):
 
         return image
 
+    def set_shading_mode(self, mode):
+        draw_mode = getattr(UsdImagingGL.DrawMode, mode)
+        self.render_params.drawMode = draw_mode
+        self.update()
+
+    def set_complexity(self, value):
+        self.render_params.complexity = value
+        self.update()
+
+    def set_purposes(self, value):
+        setattr(self.render_params, value, True)
+        self.update()
+
+    def set_materials_enabled(self, enabled):
+        self.render_params.enableSceneMaterials = enabled
+        self.update()
+
+    def set_grid_enabled(self, enabled):
+        pass
+
 
 class ViewCamera(object):
     """Interactive orbit camera for USD scene navigation.
@@ -836,10 +966,10 @@ class ViewCamera(object):
         self.fov = 45.0
 
         # Near clipping plane distance.
-        self.near_clip = 10.0  # 0.01
+        self.near_clip = 1.000  # 10.0  # 0.01
 
         # Far clipping plane distance.
-        self.far_clip = 100000000.0  # 100000.0
+        self.far_clip = 2000000.000  # 100000.0
 
         # Active USD stage up-axis.
         self.up_axis = UsdGeom.Tokens.y

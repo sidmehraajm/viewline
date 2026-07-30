@@ -9,13 +9,35 @@ Module:
 
 Description:
 
-The logger system is designed to:
-    - Standardize logging output
-    - Simplify debugging
-    - Provide formatted console logging
-    - Prevent duplicate handlers
-    - Support module-based logging
+    Logging utilities for the Viewline application.
 
+    This module configures the application's logging system and provides a reusable logger instance with a consistent output format.
+    It also includes small helper utilities used during development and debugging.
+
+Responsibilities:
+    - Create configured logger instances.
+    - Apply a consistent log format.
+    - Prevent duplicate log handlers.
+    - Output log messages to the console.
+    - Provide simple debugging helpers.
+
+Features:
+    - Named logger creation.
+    - Standardized timestamp formatting.
+    - Console logging.
+    - Duplicate handler protection.
+    - Propagation disabled.
+    - Blank line helper.
+
+Architecture:
+    getLogger()
+        └── logging.Logger
+
+    nextline()
+
+Nodes:
+    getLogger
+    nextline
 """
 
 from __future__ import absolute_import
@@ -63,25 +85,50 @@ def getLogger(name):
         - Logger propagation is disabled.
     """
 
+    # Create or retrieve the named logger.
     logger = logging.getLogger(name)
+
+    # Set the minimum logging level.
     logger.setLevel(logging.INFO)
 
-    if not logger.handlers:  # Prevent adding multiple handlers
-        # Log Format
+    # Configure the logger only once.
+    if not logger.handlers:
+        # Log message format.
         format = "# %(asctime)s%(levelname)8s: %(name)s-line: %(lineno)d | %(message)s"
+
+        # Timestamp format.
         date = "%Y/%m/%d %I:%M:%S:%p"
+
+        # Create the formatter.
         formatter = logging.Formatter(fmt=format, datefmt=date)
 
-        # Stream Handler
+        # Create a console output handler.
         handler = logging.StreamHandler(stream=sys.stdout)
+
+        # Apply the formatter.
         handler.setFormatter(formatter)
 
+        # Attach the handler to the logger.
         logger.addHandler(handler)
 
-        # Disable Propagation
+        # Prevent duplicate logging from parent loggers.
         logger.propagate = False
 
+    # Return the configured logger.
     return logger
+
+
+def nextline():
+    """Print a blank line to the console.
+
+    This helper is primarily used during debugging to visually separate groups of console output, making log messages easier to read.
+
+    Returns:
+        None
+    """
+
+    # Print an empty line.
+    print("\n")
 
 
 if __name__ == "__main__":
