@@ -269,8 +269,6 @@ class MainWindow(QtWidgets.QMainWindow):
             self.recapsWidget.inputWidget.snapshot_attachment
         )
 
-        # self.recapsWidget.inputWidget.trigger_snapshot.connect(self.render_snapshot)
-
         # --------------------------------------------------------------------
         # Viewer Timeline Toolbar Layout Signal Connections
         # --------------------------------------------------------------------
@@ -340,7 +338,7 @@ class MainWindow(QtWidgets.QMainWindow):
         """
 
         # Clear viewer if media is missing
-        if not context.get("media"):
+        if not context.get("media") and not context.get("usd"):
             self.viewframe.viewer2d.clear()
             self.viewframe.viewer3d.clear()
             self.recapsWidget.outputWidget.clear()

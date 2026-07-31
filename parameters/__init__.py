@@ -84,7 +84,7 @@ class ParametereSetting(object):
             True if the parameter supports colors.
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, **kwargs):
         """Initialize a viewer parameter.
 
         Args:
@@ -107,25 +107,25 @@ class ParametereSetting(object):
         """
 
         # Store the internal parameter name.
-        self.name = args[0]
+        self.name = kwargs.get("name")
 
         # Store the user-visible label.
-        self.label = args[1]
+        self.label = kwargs.get("label")
 
         # Store the shader uniform name.
-        self.control = args[2]
+        self.control = kwargs.get("control")
 
         # Optional shader color uniform.
         self.color_control = kwargs.get("color_control")
 
         # Minimum allowed value.
-        self.minimum = float(args[3])
+        self.minimum = kwargs.get("minimum")
 
         # Maximum allowed value.
-        self.maximum = float(args[4])
+        self.maximum = kwargs.get("maximum")
 
         # Default parameter value.
-        self.default = float(args[5])
+        self.default = kwargs.get("default")
 
         # Decimal precision used for sliders.
         self.decimals = kwargs.get("decimals") or 2

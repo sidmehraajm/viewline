@@ -352,7 +352,7 @@ They allow developers to:
 * Understand the expected data structure.
 * Run Viewline without a production tracking system.
 * Prototype integrations quickly.
-* Test the Review Player independently.
+* Test the Viewline Player independently.
 
 <p style="text-align: justify;">Once integration is complete, the JSON files are no longer required and can be replaced entirely by your production tracking system.</p>
 

@@ -58,6 +58,8 @@ Nodes:
 
 from __future__ import absolute_import
 
+from string import Template
+
 from PyOpenColorIO import GpuShaderDesc
 from PyOpenColorIO import GpuLanguage
 
@@ -159,13 +161,17 @@ class OCIOShader(object):
         self.gpu_processor.extractGpuShaderInfo(shader_desc)
 
         # Build fragment shader
-        fragment = self.create_fragment_shader(shader_desc.getShaderText())
+        # fragment_source = self.create_fragment_shader(shader_desc.getShaderText())
 
-        # Load vertex shader
-        vertex_shader = resources.readVertexShader("display")
+        # Read the ocio shader source files.
+        vertex_shader, fragment_source = resources.readShader("ocio_display")
+
+        # Replace ocio_shader key to current shader text
+        shader_template = Template(fragment_source)
+        fragment_source = shader_template.substitute(ocio_shader=shader_desc.getShaderText())
 
         # Compile shader program
-        self.shader.compile(vertex_shader, fragment)
+        self.shader.compile(vertex_shader, fragment_source)
 
     def create_fragment_shader(self, ocio_shader):
         """Generate the final GLSL fragment shader.
@@ -248,6 +254,9 @@ class OCIOShader(object):
 
         # Destroy the internal shader.
         self.shader.destroy()
+
+    def has_uniform(self, name):
+        return self.shader.has_uniform(name)
 
     def uniform_location(self, name):
         """Return the location of a shader uniform.

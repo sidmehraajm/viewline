@@ -13,7 +13,7 @@ This project is to provide a lightweight, extensible, and production-friendly fr
 
 **Core Responsibilities**
 
-* Review image sequences and movie files.
+* Review image sequences, movie files and 3D Scene(usd).
 * Frame-accurate playback.
 * Audio and video synchronization.
 * Timeline navigation and scrubbing.
@@ -34,6 +34,7 @@ The project is built primarily using
 * OpenImageIO
 * PyAV
 * OCIO
+* Open USD
 
 
 <p style="text-align: justify;">

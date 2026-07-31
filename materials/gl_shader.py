@@ -199,6 +199,11 @@ class GLShader(object):
         # Query the uniform location.
         return GL.glGetUniformLocation(self.program, name)
 
+    def has_uniform(self, name):
+        location = GL.glGetUniformLocation(self.program, name)
+
+        return location != -1
+
     def set_uniform_int(self, name, value):
         """Upload an integer uniform.
 

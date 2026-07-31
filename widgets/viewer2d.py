@@ -436,6 +436,9 @@ class GLViewer2d(GLViewer):
         Creates the OCIO shader from the current processor and updates the viewer's OCIO enabled state.
         """
 
+        if self.ocio_shader is not None:
+            self.ocio_shader.release()
+
         # Create the OpenColorIO shader.
         self.ocio_shader = OCIOShader(None)
 
