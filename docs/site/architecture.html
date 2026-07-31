@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><link rel="canonical" href="https://subing85.github.io/viewline/architecture.html" />
+      <link rel="shortcut icon" href="img/favicon.ico" />
+    <title>Architecture - Viewline doc</title>
+    <link rel="stylesheet" href="css/theme.css" />
+    <link rel="stylesheet" href="css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Architecture";
+        var mkdocs_page_input_path = "architecture.md";
+        var mkdocs_page_url = "/viewline/architecture.html";
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href="index.html" class="icon icon-home"> Viewline doc
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="./search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="index.html">Home</a>
+                </li>
+              </ul>
+              <ul class="current">
+                <li class="toctree-l1 current"><a class="reference internal current" href="#">Architecture</a>
+    <ul class="current">
+    </ul>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="integration.html">Studio Integration</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="call.html">How to Run?</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="demo.html">Demo</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="support.html">Support</a>
+                </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Viewline doc</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="index.html" class="icon icon-home" aria-label="Docs"></a></li>
+      <li class="breadcrumb-item active">Architecture</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <p style="text-align: justify;">
+<span style="color:green;">Viewline</span> is a modern GPU-accelerated media viewer for animation, VFX, and OpenUSD workflows. It provides high-performance playback of video files, image sequences, and OpenUSD scenes through a unified OpenGL-based viewer.
+</p>
+
+<hr />
+<h3 id="supported-formats">Supported formats:</h3>
+<blockquote>
+<p><strong>Video</strong></p>
+<blockquote>
+<ul>
+<li>MP4</li>
+<li>MOV</li>
+<li>AVI</li>
+</ul>
+</blockquote>
+<p><strong>Image Sequences</strong></p>
+<blockquote>
+<ul>
+<li>PNG</li>
+<li>JPEG</li>
+<li>EXR</li>
+</ul>
+</blockquote>
+<p><strong>3D Scene</strong></p>
+<blockquote>
+<ul>
+<li>USD</li>
+<li>USDA</li>
+<li>USDC</li>
+<li>USDZ</li>
+</ul>
+</blockquote>
+</blockquote>
+<hr />
+<h3 id="color-management">Color Management</h3>
+<p style="text-align: justify;">
+Viewline integrates OpenColorIO (OCIO) for consistent color management across all supported media types.
+</p>
+
+<blockquote>
+<p><strong>Features</strong></p>
+<blockquote>
+<ul>
+<li><span style="color:green;">OpenColorIO integration</p></li>
+<li><span style="color:green;">ACES workflow architecture</p></li>
+<li><span style="color:green;">Input color space selection</p></li>
+<li><span style="color:green;">Display transform selection</p></li>
+</ul>
+</blockquote>
+<p><strong>Recommended Configuration</strong></p>
+<blockquote>
+<p>ACES 1.3 OCIO Config</p>
+</blockquote>
+</blockquote>
+<hr />
+<h3 id="system-architecture">System Architecture</h3>
+<pre><code class="language-text">
+                        Media Source
+
+             (Video / Image Sequence / OpenUSD)
+                              │
+                              ▼
+                        Media Reader
+                              │
+                ┌─────────────┴─────────────┐
+                │                           │
+                ▼                           ▼
+        Video / Image Pipeline       OpenUSD Pipeline
+                │                           │
+                ▼                           ▼
+            GPU Upload                Hydra Renderer
+                │                           │
+                ▼                           ▼
+            GLTexture                 Render Delegate
+                │                           │
+                ▼                           ▼
+            GLShader                     GLScreen
+                │                           │
+                └─────────────┬─────────────┘
+                              ▼
+                          GLScreen
+                              │
+                              ▼
+                        QOpenGLWidget
+                              │
+                              ▼
+               Display Output / Interactive 3D View
+
+</code></pre>
+<h3 id="rendering-architecture">Rendering Architecture</h3>
+<p style="text-align: justify;">
+Viewline uses a fully GPU-based rendering architecture where each rendering component has a dedicated responsibility.
+</p>
+
+<h3 id="core-components">Core Components</h3>
+<blockquote>
+<p><strong>QOpenGLWidget</strong></p>
+<blockquote>
+<ul>
+<li>Creates the OpenGL context</li>
+<li>Handles resize events</li>
+<li>Displays the rendered output</li>
+<li>Processes user interaction</li>
+</ul>
+</blockquote>
+<p><strong>GLScreen</strong> </p>
+<blockquote>
+<ul>
+<li>Responsible for:<blockquote>
+<ul>
+<li>Render pass management</li>
+<li>Frame presentation</li>
+<li>Viewport updates</li>
+<li>GPU resource coordination</li>
+</ul>
+</blockquote>
+</li>
+</ul>
+</blockquote>
+<p><strong>GLTexture</strong></p>
+<blockquote>
+<ul>
+<li>Responsible for:<blockquote>
+<ul>
+<li>GPU texture allocation</li>
+<li>Texture uploads</li>
+<li>Texture updates</li>
+<li>Texture lifecycle management</li>
+</ul>
+</blockquote>
+</li>
+</ul>
+</blockquote>
+<p><strong>GLShader</strong></p>
+<blockquote>
+<ul>
+<li>Responsible for:<blockquote>
+<ul>
+<li>Shader compilation</li>
+<li>Color processing</li>
+<li>OpenColorIO transforms</li>
+<li>GPU rendering</li>
+</ul>
+</blockquote>
+</li>
+</ul>
+</blockquote>
+</blockquote>
+<hr />
+<h3 id="viewer-settings">Viewer Settings</h3>
+<blockquote>
+<p><strong>Video / Image</strong></p>
+<blockquote>
+<p><strong>Display Settings</strong></p>
+<blockquote>
+<ul>
+<li>Exposure</li>
+<li>Gamma</li>
+<li>Brightness</li>
+<li>Contrast</li>
+<li>Saturation</li>
+<li>Hue</li>
+<li>Gain</li>
+<li>Offset</li>
+<li>Overlay</li>
+</ul>
+</blockquote>
+<p><strong>Style Settings</strong></p>
+<blockquote>
+<ul>
+<li>Sepia</li>
+<li>Negative</li>
+<li>Posterize</li>
+<li>Gradient</li>
+<li>Cartoon</li>
+</ul>
+</blockquote>
+<p><strong>Filter Settings</strong></p>
+<blockquote>
+<ul>
+<li>Sharpen</li>
+<li>Blur</li>
+<li>Motion Blur</li>
+<li>Noise</li>
+<li>Denoiser</li>
+</ul>
+</blockquote>
+</blockquote>
+<p><strong>OpenUSD Viewer</strong></p>
+<blockquote>
+<p><strong>Display Settings</strong></p>
+<blockquote>
+<p><strong>Shading Mode</strong></p>
+<blockquote>
+<ul>
+<li>Shaded Smooth</li>
+<li>Shaded Flat</li>
+<li>Wireframe</li>
+<li>Wireframe on Surface</li>
+<li>Points</li>
+<li>Geom Only</li>
+<li>Geom Smooth</li>
+<li>Geom Flat</li>
+</ul>
+</blockquote>
+<p><strong>Complexity</strong></p>
+<blockquote>
+<ul>
+<li>Low</li>
+<li>Medium</li>
+<li>High</li>
+<li>Very High</li>
+</ul>
+</blockquote>
+<p><strong>Display Purposes</strong></p>
+<blockquote>
+<ul>
+<li>Guide</li>
+<li>Proxy</li>
+<li>Render</li>
+</ul>
+</blockquote>
+<p><strong>Enable Scene Materials</strong></p>
+</blockquote>
+<p><strong>Camera</strong></p>
+<blockquote>
+<ul>
+<li>Default Camera</li>
+<li>Stage Cameras</li>
+</ul>
+</blockquote>
+</blockquote>
+</blockquote>
+<hr />
+<h3 id="rendering-backends">Rendering Backends</h3>
+<table>
+<thead>
+<tr>
+<th>Media Type</th>
+<th>Reader</th>
+<th>GPU Backend</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Video</td>
+<td>PyAV</td>
+<td>Hardware Decode → OpenGL</td>
+</tr>
+<tr>
+<td>Image Sequence</td>
+<td>OpenImageIO</td>
+<td>OpenGL Texture Rendering</td>
+</tr>
+<tr>
+<td>OpenUSD</td>
+<td>OpenUSD</td>
+<td>Hydra Rendering</td>
+</tr>
+</tbody>
+</table>
+<h3 id="python-requirements">Python Requirements</h3>
+<blockquote>
+<p><a href="https://www.python.org/downloads/release/python-31010/">Python-3.10.10</a> or +</p>
+</blockquote>
+<h3 id="dependencies">Dependencies</h3>
+<blockquote>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>PySide6</td>
+<td>UI framework</td>
+</tr>
+<tr>
+<td>PyOpenGL</td>
+<td>OpenGL rendering</td>
+</tr>
+<tr>
+<td>NumPy</td>
+<td>Image buffer processing</td>
+</tr>
+<tr>
+<td>PyAV</td>
+<td>Video decoding</td>
+</tr>
+<tr>
+<td>OpenImageIO</td>
+<td>Image sequence reading</td>
+</tr>
+<tr>
+<td>OpenColorIO</td>
+<td>Color management</td>
+</tr>
+<tr>
+<td>OpenUSD</td>
+<td>3D Objects</td>
+</tr>
+</tbody>
+</table>
+</blockquote>
+<h3 id="required-libraries">Required Libraries</h3>
+<pre><code class="language-yml">
+    requests: 2.32.2
+
+        certifi: 2024.2.2 or +
+        idna: 3.7 or +
+        urllib3: 2.2.1 or +
+        charset-normalizer: 3.3.2 or +
+
+    PySide6: 6.9.0 or +
+
+        shiboken6: 6.9.0 or +
+        PySide6-Essentials: 6.9.0 or +
+        PySide6-Addons: 6.9.0 or +
+
+    pyqtdarktheme: 2.1.0 or +
+
+        darkdetect: 0.7.1 or +
+
+    OpenImageIO: 3.0.4.0 or +
+
+    PyOpenGL: 3.1.9 or +
+
+    opencolorio: 2.5.0 or +
+
+    av: 17.0.0 or +
+
+    OpenUSD: 26.05
+
+    numpy: 1.26.4 or +
+
+</code></pre>
+<hr />
+<h3 id="recommended-ocio-config-aces-13">Recommended OCIO Config ACES 1.3</h3>
+<blockquote>
+<p>Official repository:</p>
+<p><a href="https://github.com/AcademySoftwareFoundation/OpenColorIO-Config-ACES">https://github.com/AcademySoftwareFoundation/OpenColorIO-Config-ACES</a></p>
+</blockquote>
+<h3 id="open-exr-support">Open EXR Support</h3>
+<blockquote>
+<p>The player currently supports:</p>
+<ul>
+<li>Single-layer EXR</li>
+<li>Multi-layer EXR</li>
+<li>RGB layer extraction</li>
+<li>Basic AOV switching</li>
+</ul>
+<p>The EXR reader automatically searches for valid RGB layers.</p>
+<p>Example supported channel patterns:</p>
+</blockquote>
+<pre><code class="language-text">    R G B
+    beauty.R beauty.G beauty.B
+    rgba.R rgba.G rgba.B
+    Ci.R Ci.G Ci.B
+</code></pre>
+<hr />
+<h3 id="current-limitations">Current Limitations</h3>
+<p>This project is currently an early playback framework.</p>
+<p>Known limitations:</p>
+<ul>
+<li>No threaded decoding</li>
+<li>Image decoding may load many frames into memory</li>
+<li>EXR playback currently converts float images into uint8 previews</li>
+<li>No HDR display pipeline yet</li>
+</ul>
+<hr />
+<h3 id="design-notes">Design Notes</h3>
+<ul>
+<li>Fully GPU-based rendering pipeline.</li>
+<li>Unified viewer for video, image sequences, and OpenUSD.</li>
+<li>Modular rendering architecture.</li>
+<li>OpenGL shaders used throughout the rendering pipeline.</li>
+<li>Hydra-based rendering for OpenUSD scenes.</li>
+<li>OpenColorIO integration for color-managed workflows.</li>
+<li>No legacy glDrawPixels() rendering.</li>
+<li>Extensible architecture for future rendering backends.</li>
+</ul>
+<hr />
+<p><strong>© Support, subing85@gmail.com.</strong></p>
+<hr />
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="index.html" class="btn btn-neutral float-left" title="Home"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="integration.html" class="btn btn-neutral float-right" title="Studio Integration">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+    
+      <span><a href="index.html" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="integration.html" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = ".";</script>
+    <script src="js/theme_extra.js"></script>
+    <script src="js/theme.js"></script>
+      <script src="search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>

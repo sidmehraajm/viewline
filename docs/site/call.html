@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><link rel="canonical" href="https://subing85.github.io/viewline/call.html" />
+      <link rel="shortcut icon" href="img/favicon.ico" />
+    <title>How to Run? - Viewline doc</title>
+    <link rel="stylesheet" href="css/theme.css" />
+    <link rel="stylesheet" href="css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "How to Run?";
+        var mkdocs_page_input_path = "call.md";
+        var mkdocs_page_url = "/viewline/call.html";
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href="index.html" class="icon icon-home"> Viewline doc
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="./search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="index.html">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="architecture.html">Architecture</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="integration.html">Studio Integration</a>
+                </li>
+              </ul>
+              <ul class="current">
+                <li class="toctree-l1 current"><a class="reference internal current" href="#">How to Run?</a>
+    <ul class="current">
+    </ul>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="demo.html">Demo</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="support.html">Support</a>
+                </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Viewline doc</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="index.html" class="icon icon-home" aria-label="Docs"></a></li>
+      <li class="breadcrumb-item active">How to Run?</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h3 id="running-viewline">Running Viewline</h3>
+<p>Viewline is a standalone Python application that can be launched directly from the command line or through a platform-specific launcher script.</p>
+<h3 id="requirements">Requirements</h3>
+<p>Before running Viewline, ensure the following are installed:</p>
+<ul>
+<li>Python 3.10 or newer</li>
+<li>PySide6</li>
+<li>PyAV</li>
+<li>NumPy</li>
+<li>OpenImageIO</li>
+<li>OpenColorIO</li>
+<li>PyOpenGL</li>
+<li>OpenUSD</li>
+<li>All additional Python dependencies listed in the development kit</li>
+</ul>
+<h3 id="openusd">OpenUSD</h3>
+<p>Viewline requires <strong>OpenUSD 26.05</strong>.</p>
+<p style="text-align: justify;">
+Since prebuilt binaries may not be available for every platform, it is recommended to build <strong>OpenUSD 26.05</strong> from source.
+</p>
+
+<h3 id="build-openusd-2605">Build OpenUSD 26.05</h3>
+<p>Follow the official OpenUSD build instructions to compile the library for your platform.</p>
+<p><a href="https://github.com/PixarAnimationStudios/OpenUSD/releases/tag/v26.05">https://github.com/PixarAnimationStudios/OpenUSD/releases/tag/v26.05</a></p>
+<p>After building OpenUSD, ensure that:</p>
+<ul>
+<li>The OpenUSD Python bindings are available.</li>
+<li>The required OpenUSD libraries are accessible through your system environment.</li>
+<li>Viewline can locate the OpenUSD installation.</li>
+</ul>
+<hr />
+<h3 id="opencolorio">OpenColorIO</h3>
+<p>The OpenColorIO configuration file (<code>config.ocio</code>) must be available before launching Viewline.</p>
+<p>Set the <code>OCIO</code> environment variable to point to your configuration file if it is not configured automatically.</p>
+<hr />
+<h3 id="download-latest-version">Download latest version</h3>
+<p>
+    <a href="https://github.com/subing85/viewline/releases" download>
+        📥 Viewline 
+    </a>
+</p>
+
+<h3 id="windows">Windows</h3>
+<p>Create a launcher batch file (<code>viewline.bat</code>) similar to the following.</p>
+<pre><code class="language-bat">
+:: Viewline source directory
+
+set &quot;VIEWLINE_SOURCE=D:/developments&quot;
+
+:: Python installation
+set &quot;PYTHON=C:/Program Files/Python310/python.exe&quot;
+
+:: Third-party libraries
+set &quot;LIB_DIR=D:/developments/devkit/site-packages&quot;
+
+:: OpenUsd directory
+set &quot;USD_PLUGIN_PATH=D:/developments/devkit/plug-ins/OpenUSD-26.05&quot;
+
+:: Append the PATH to usd plugin path
+set &quot;PATH=%PATH%;%USD_PLUGIN_PATH%/bin;%USD_PLUGIN_PATH%/lib&quot;
+
+:: Python search path
+set &quot;PYTHONPATH=%VIEWLINE_SOURCE%LIB_DIR%/charset-normalizer/3.3.2;%LIB_DIR%/certifi/2024.2.2;%LIB_DIR%/idna/3.7;%LIB_DIR%/urllib3/2.2.1;%LIB_DIR%/requests/2.32.2;%LIB_DIR%/darkdetect/0.7.1;%LIB_DIR%/pyqtdarktheme/2.1.0;%LIB_DIR%/OpenImageIO/3.0.4.0;%LIB_DIR%/PySide6/6.9.0;%LIB_DIR%/shiboken6/6.9.0;%LIB_DIR%/PySide6-Essentials/6.9.0;%LIB_DIR%/PySide6-Addons/6.9.0;%LIB_DIR%/PyOpenGL/3.1.9;%LIB_DIR%/opencolorio/2.5.0;%LIB_DIR%/av/17.0.0;%LIB_DIR%/numpy/1.26.4;%USD_PLUGIN_PATH%/lib/python;&quot;
+
+:: OpenColorIO configuration
+set &quot;OCIO=D:/developments/devkit/ocio/studio-config-v4.0.0_aces-v2.0_ocio-v2.5.ocio&quot;
+
+:: User profile
+set &quot;VIEW_LINE_PROFILE_ROOT=%USERPROFILE%/Documents&quot;
+
+:: Launch Viewline
+&quot;%PYTHON%&quot; &quot;%VIEWLINE_SOURCE%/viewline/main.py&quot; %*
+
+</code></pre>
+<p>Run the application by double-clicking the batch file or from a command prompt.</p>
+<hr />
+<h3 id="linux">Linux</h3>
+<p>Create a launcher shell script (<code>viewline.sh</code>).</p>
+<pre><code class="language-bash">#!/bin/bash
+
+# Viewline source directory
+export VIEWLINE_SOURCE=D:/developments/
+
+# Python installation
+export PYTHON=/usr/bin/python3.10
+
+# Third-party libraries
+export LIB_DIR=/developments/devkit/site-packages
+
+# OpenUsd directory
+export USD_PLUGIN_PATH=/developments/devkit/plug-ins/OpenUSD-26.05
+
+# Append the PATH to usd plugin path
+export PATH=$PATH;$USD_PLUGIN_PATH/bin;$USD_PLUGIN_PATH/lib&quot;
+
+# Python search path
+export PYTHONPATH=\
+$VIEWLINE_SOURCE:\
+$LIB_DIR/charset-normalizer/3.3.2:\
+$LIB_DIR/certifi/2024.2.2:\
+$LIB_DIR/idna/3.7:\
+$LIB_DIR/urllib3/2.2.1:\
+$LIB_DIR/requests/2.32.2:\
+$LIB_DIR/darkdetect/0.7.1:\
+$LIB_DIR/pyqtdarktheme/2.1.0:\
+$LIB_DIR/OpenImageIO/3.0.4.0:\
+$LIB_DIR/PySide6/6.9.0:\
+$LIB_DIR/shiboken6/6.9.0:\
+$LIB_DIR/PySide6-Essentials/6.9.0:\
+$LIB_DIR/PySide6-Addons/6.9.0:\
+$LIB_DIR/PyOpenGL/3.1.9:\
+$LIB_DIR/opencolorio/2.5.0:\
+$LIB_DIR/av/17.0.0:\
+$LIB_DIR/numpy/1.26.4:\
+$USD_PLUGIN_PATH//lib/python:\
+
+# OpenColorIO configuration
+export OCIO=/developments/devkit/ocio/studio-config-v4.0.0_aces-v2.0_ocio-v2.5.ocio
+
+# User profile
+export VIEW_LINE_PROFILE_ROOT=$HOME/Documents
+
+# Launch Viewline
+&quot;$PYTHON&quot; &quot;%VIEWLINE_SOURCE%/viewline/main.py&quot; &quot;$@&quot;
+
+
+</code></pre>
+<p>Make the launcher executable.</p>
+<pre><code class="language-bash">chmod +x viewline.sh
+</code></pre>
+<p>Run the application.</p>
+<pre><code class="language-bash">./viewline.sh
+</code></pre>
+<hr />
+<h3 id="environment-variables">Environment Variables</h3>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>PYTHON</code></td>
+<td>Python executable used to launch Viewline.</td>
+</tr>
+<tr>
+<td><code>PYTHONPATH</code></td>
+<td>Locations of all required third-party Python packages and the Viewline source directory.</td>
+</tr>
+<tr>
+<td><code>OCIO</code></td>
+<td>Path to the OpenColorIO configuration file.</td>
+</tr>
+<tr>
+<td><code>VIEW_LINE_PROFILE_ROOT</code></td>
+<td>Directory used by Viewline to store user preferences, recent files, and application settings.</td>
+</tr>
+<tr>
+<td><code>PATH</code></td>
+<td>Append the PATH to usd plugin lib and bin path.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="customizing-your-studio-environment">Customizing Your Studio Environment</h3>
+<p>The launcher scripts included above are reference implementations.</p>
+<p style="text-align: justify;">Every studio has a different pipeline structure, Python installation, development kit, and OpenColorIO configuration. Before deploying Viewline, update the following values to match your production environment:</p>
+
+<ul>
+<li>Python executable</li>
+<li>Third-party library locations</li>
+<li>Viewline installation directory</li>
+<li>OpenColorIO configuration</li>
+<li>User profile directory</li>
+<li>OpenUSD 26.05</li>
+</ul>
+<p style="text-align: justify;">Only these paths need to be changed. The application itself requires no source code modifications to run in a different studio environment.</p>
+
+<hr />
+<p><strong>© Support, subing85@gmail.com.</strong></p>
+<hr />
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="integration.html" class="btn btn-neutral float-left" title="Studio Integration"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="demo.html" class="btn btn-neutral float-right" title="Demo">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+    
+      <span><a href="integration.html" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="demo.html" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = ".";</script>
+    <script src="js/theme_extra.js"></script>
+    <script src="js/theme.js"></script>
+      <script src="search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>
