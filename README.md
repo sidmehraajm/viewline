@@ -1,5 +1,3 @@
-
-
 ## Viewline
 
 Viewline is a professional Python-based review player framework for VFX, animation, and post-production workflows.
@@ -22,6 +20,7 @@ This project is to provide a lightweight, extensible, and production-friendly fr
 * Overlay information (frame number, resolution, FPS, metadata).
 * Snapshot and annotation support.
 * Pipeline integration with published versions and review notes.
+* Review image sequences, movie files and 3D Scene(usd).
 
 
 The project is built primarily using Python 3.10, PySide6, OpenGL, OpenImageIO, PyAV, and OCIO.
@@ -44,19 +43,45 @@ Supported formats:
 * JPEG
 * EXR
 
+## 3D Scene
+
+* USD
+* USDA
+* USDC
+* USDZ
 
 ## Color Management
 
 * OpenColorIO integration
-* ACES workflow architecture *(in progress)*
-* Input color space selection *(in progress)*
-* Display transform selection *(in progress)*
-* View transform selection *(in progress)*
-
+* ACES workflow architecture
+* Input color space selection
+* Display transform selection
 
 ---
-## Studio Integration (How to customized based on studio workflows?)
 
+### OpenUSD
+
+Viewline requires **OpenUSD 26.05**.
+
+<p style="text-align: justify;">
+Since prebuilt binaries may not be available for every platform, it is recommended to build <strong>OpenUSD 26.05</strong> from source.
+</p>
+
+### Build OpenUSD 26.05
+
+Follow the official OpenUSD build instructions to compile the library for your platform.
+
+<https://github.com/PixarAnimationStudios/OpenUSD/releases/tag/v26.05>
+
+After building OpenUSD, ensure that:
+
+- The OpenUSD Python bindings are available.
+- The required OpenUSD libraries are accessible through your system environment.
+- Viewline can locate the OpenUSD installation.
+
+---
+
+## Studio Integration (How to customized based on studio workflows?)
 
 Viewline ships with a lightweight JSON-based implementation that allows the application to run immediately without requiring a production tracking system.
 
@@ -68,8 +93,6 @@ The Viewline itself does not require modification.
 * **Projects**
 * **Versions**
 * **Review notes**
-
-
 
 ## Projects
 
@@ -105,8 +128,6 @@ The returned data should contain the information required to populate the Projec
 * Thumbnail
 
 *Studios are free to include additional metadata if required.*
-
-
 
 ## Versions
 * Versions represent published media available for review.
@@ -148,8 +169,6 @@ Example version data is located in:
 * Created By
 
 *Additional metadata may be included depending on the studio workflow.*
-
-
 
 ## Review Notes
 * Review Notes are used to display existing comments and submit new feedback during playback.
@@ -223,6 +242,7 @@ Example review data is located in:
 
 Only the highlighted data providers need to be replaced for studio integration.
 
+
 ## Why JSON?
 
 The JSON files included with Viewline are intended solely as reference implementations.
@@ -269,7 +289,7 @@ python-3.10.10 or +
 | PyAV        | Video decoding          |
 | OpenImageIO | Image sequence reading  |
 | OpenColorIO | Color management        |
-
+|OpenUSD      | 3D Objects              |
 
 ## Required Libraries
 
@@ -293,6 +313,7 @@ python-3.10.10 or +
     PyOpenGL: 3.1.9
     opencolorio: 2.5.0
     av: 17.0.0
+    OpenUSD: 26.05
     numpy: 1.26.4
 ```
 
@@ -325,21 +346,17 @@ rgba.R rgba.G rgba.B
 Ci.R Ci.G Ci.B
 ```
 
-
 # Current Limitations
 
 This project is currently an early playback framework.
 
 Known limitations:
 
-* OpenGL currently uses `glDrawPixels()`
-* No GPU texture rendering yet
 * No threaded decoding
-* Video decoding may load many frames into memory
+* Image decoding may load many frames into memory
 * EXR playback currently converts float images into uint8 previews
 * No HDR display pipeline yet
-* No audio synchronization
-* No annotation system
+
 ---
 
 # Future Roadmap
@@ -351,7 +368,6 @@ Known limitations:
 * Smart frame cache
 * GPU upload pipeline
 
-
 ## Viewer
 
 * OpenGL texture rendering
@@ -361,8 +377,6 @@ Known limitations:
 * Fit modes
 * Pixel inspection
 
-
-
 ## Timeline
 
 * Timeline zoom
@@ -370,7 +384,6 @@ Known limitations:
 * Frame markers
 * Notes/comments
 * In/out ranges
-
 
 ## EXR Features
 
@@ -380,13 +393,11 @@ Known limitations:
 * Metadata viewer
 * Multi-part EXR support
 
-
 ## Integrations
 
 * USD pipelines
 * FFmpeg render export
 * Editorial workflow
-
 
 ---
 # Author

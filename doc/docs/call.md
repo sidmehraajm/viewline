@@ -16,6 +16,7 @@ Before running Viewline, ensure the following are installed:
 * OpenUSD
 * All additional Python dependencies listed in the development kit
 
+---
 
 ### OpenUSD
 
