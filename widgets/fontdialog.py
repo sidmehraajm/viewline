@@ -246,8 +246,6 @@ class TxtInputDialog(QtWidgets.QDialog):
         font.setStrikeOut(self.strikeButton.isChecked())
         self.strikeButton.setFont(font)
 
-        size = self.fontSizeSpinBox.value()
-
         # Store formatting values
         self.values = {
             "family": current_font.family(),

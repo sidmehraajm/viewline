@@ -1,211 +1,393 @@
 """
-OCIO GPU Shader
+Copyright (c) 2026, Motion-Craft Technology All rights reserved.
 
-Builds GPU display shaders using OpenColorIO.
+Author:
+    Subin. Gopi (subing85@gmail.com).
+
+Module:
+    ./materials/gl_ocio_shader.py
+
+Description:
+    OpenColorIO GPU shader integration.
+
+    This module provides a wrapper around OpenColorIO's GPU processing pipeline and dynamically
+    generates GLSL fragment shaders for real-time color management inside the Viewline OpenGL viewer.
 
 Responsibilities:
-    * Create GPU display transforms.
-    * Generate GLSL shader code.
-    * Compile OpenGL shaders.
-    * Rebuild shaders when OCIO settings change.
+    * Build GPU shaders from an OpenColorIO processor.
+    * Generate GLSL fragment shaders with embedded OCIO code.
+    * Manage shader compilation and lifecycle.
+    * Provide a simplified API for shader uniform updates.
+    * Bridge OpenColorIO GPU processors with OpenGL rendering.
+
+Features:
+    * Automatic GPU shader extraction from OCIO.
+    * Dynamic GLSL shader generation.
+    * Uses OpenGL 4.0 GLSL backend.
+    * Supports display transforms.
+    * Uniform helper methods.
+    * Encapsulates OpenGL shader management.
 
 Architecture:
+    OCIO Processor
+           │
+           ▼
+    GPU Processor
+           │
+           ▼
+    Shader Description
+           │
+           ▼
+    Generated GLSL Fragment Shader
+           │
+           ▼
+        GLShader
+           │
+           ▼
+      OpenGL Rendering
 
-    Image Texture
-          │
-          ▼
-    OCIO GPU Shader
-          │
-          ▼
-      OpenGL Screen
-
-Notes:
-    This class performs no image processing on the CPU.
-    All color conversion occurs on the GPU.
+Nodes:
+    OCIOShader
+        ├── build()
+        ├── create_fragment_shader()
+        ├── bind()
+        ├── release()
+        ├── destroy()
+        └── Uniform helper methods
 """
 
-import PyOpenColorIO
+from __future__ import absolute_import
 
-from PyOpenColorIO import Config
-from PyOpenColorIO import GPUProcessor
+from string import Template
+
 from PyOpenColorIO import GpuShaderDesc
 from PyOpenColorIO import GpuLanguage
 
-from .gl_shader import GLShader
-
 from viewline import resources
 
-VERTEX_SHADER = """
-#version 330 core
-
-layout(location = 0) in vec2 position;
-layout(location = 1) in vec2 texcoord;
-
-out vec2 uv;
-
-void main()
-{
-    uv = texcoord;
-    gl_Position = vec4(position,0.0,1.0);
-}
-"""
+from .gl_shader import GLShader
 
 
 class OCIOShader(object):
-    """GPU OCIO display shader."""
+    """
+    OpenColorIO GPU shader wrapper.
+
+    Builds OpenGL shader programs directly from an OpenColorIO processor and exposes convenience methods for shader usage.
+
+    Responsibilities:
+        * Build GPU shaders.
+        * Generate fragment shader source.
+        * Manage shader lifetime.
+        * Forward uniform operations.
+
+    Attributes:
+        processor:
+            OpenColorIO processor.
+
+        gpu_processor:
+            GPU optimized processor.
+
+        shader (GLShader):
+            Internal OpenGL shader wrapper.
+
+        input_space:
+            Current input color space.
+
+        display:
+            Active display.
+
+        view:
+            Active display view.
+    """
 
     def __init__(self, config_path):
         """
-        Initialize OCIO shader.
+        Initialize the OCIO shader.
 
         Args:
             config_path (str):
-                Path to ocio configuration.
+                OCIO configuration path.
+                Reserved for future initialization.
+
+        Returns:
+            None
         """
 
-        # self.config = Config.CreateFromFile(config_path)
-        # self.config = PyOpenColorIO.Config.CreateFromFile(config_path)
-
+        # OCIO processor
         self.processor = None
+
+        # GPU processor
         self.gpu_processor = None
 
+        # OpenGL shader wrapper
         self.shader = GLShader()
 
+        # Current input colorspace
         self.input_space = None
+
+        # Active display
         self.display = None
+
+        # Active view
         self.view = None
 
     def build(self, ocio_processor):
         """
-        Build GPU shader.
+        Build an OpenGL shader from an OCIO processor.
+
+        The processor is converted into GPU shader code which is then combined with the application's fragment shader template.
 
         Args:
-            input_space (str):
-                Image color space.
+            ocio_processor:
+                OpenColorIO display processor.
 
-            display (str):
-                Display device.
-
-            view (str):
-                Display view.
+        Returns:
+            None
         """
 
+        # Create GPU processor
         self.gpu_processor = ocio_processor.get_default_GPU_processor()
 
-        # Build GLSL shader
+        # Create shader description
         shader_desc = GpuShaderDesc.CreateShaderDesc()
+
+        # GLSL 4.0 backend
         shader_desc.setLanguage(GpuLanguage.GPU_LANGUAGE_GLSL_4_0)
+
+        # OCIO function name
         shader_desc.setFunctionName("OCIODisplay")
 
+        # Extract generated GLSL
         self.gpu_processor.extractGpuShaderInfo(shader_desc)
-        fragment = self.create_fragment_shader(shader_desc.getShaderText())
 
-        vertex_shader = resources.readVertexShader("display")
-        self.shader.compile(vertex_shader, fragment)
+        # Build fragment shader
+        # fragment_source = self.create_fragment_shader(shader_desc.getShaderText())
+
+        # Read the ocio shader source files.
+        vertex_shader, fragment_source = resources.readShader("ocio_display")
+
+        # Replace ocio_shader key to current shader text
+        shader_template = Template(fragment_source)
+        fragment_source = shader_template.substitute(ocio_shader=shader_desc.getShaderText())
+
+        # Compile shader program
+        self.shader.compile(vertex_shader, fragment_source)
 
     def create_fragment_shader(self, ocio_shader):
-        """
-        Create complete fragment shader.
+        """Generate the final GLSL fragment shader.
+
+        This method combines the OpenColorIO generated GLSL code with the application's fragment shader template. The resulting
+        shader samples the input texture, applies the OCIO display transform, and outputs the transformed color.
 
         Args:
             ocio_shader (str):
-                GLSL code generated by OCIO.
+                GLSL source code generated by OpenColorIO.
 
         Returns:
-            str
-
-        #version 330 core
-
-        in vec2 uv;
-
-        out vec4 FragColor;
-
-        uniform sampler2D imageTexture;
-
-        {ocio_shader}
-
-        void main()
-        {{
-            vec4 color = texture(
-                imageTexture,
-                uv
-            );
-
-            color = OCIODisplay(color);
-
-            FragColor = color;
-        }}
-
+            str:
+                Complete GLSL fragment shader source.
         """
 
+        # Build the fragment shader source.
         codes = [
             "#version 330 core\n",
+            # Texture coordinates from the vertex shader.
             "in vec2 uv;\n",
+            # Final output color.
             "out vec4 FragColor;\n",
+            # Input image texture.
             "uniform sampler2D imageTexture;\n",
+            # Generated OpenColorIO shader code.
             f"{ocio_shader}\n",
+            # Fragment shader entry point.
             "void main()\n",
             "{{",
+            # Sample the source image.
             "\tvec4 color = texture(",
             "\t\timageTexture,",
             "\t\tuv",
             "\t);\n",
+            # Apply the OCIO display transform.
             "\tcolor = OCIODisplay(color);\n",
+            # Debug color modification (optional).
             # "\tcolor.rgb *= vec3(0.0, 1.0, 0.0);",
+            # Write the final pixel color.
             "\tFragColor = color;",
             "}}",
         ]
 
+        # Return the complete shader source.
         return "\n".join(codes)
 
     def bind(self):
-        """Bind GPU shader."""
+        """Activate the OCIO shader program.
 
+        Makes the internal OpenGL shader the active program for subsequent rendering operations.
+
+        Returns:
+            None
+        """
+
+        # Bind the internal shader.
         self.shader.bind()
 
     def release(self):
-        """Release GPU shader."""
+        """Deactivate the OCIO shader program.
 
+        Restores OpenGL to having no active shader program.
+
+        Returns:
+            None
+        """
+
+        # Release the internal shader.
         self.shader.release()
 
     def destroy(self):
-        """Destroy OpenGL shader."""
+        """Release all OpenGL shader resources.
 
+        Frees the compiled shader program and associated OpenGL resources owned by this OCIO shader.
+
+        Returns:
+            None
+        """
+
+        # Destroy the internal shader.
         self.shader.destroy()
 
-    def uniform_location(self, name):
-        """Return uniform location."""
+    def has_uniform(self, name):
+        return self.shader.has_uniform(name)
 
+    def uniform_location(self, name):
+        """Return the location of a shader uniform.
+
+        This is a convenience wrapper around the internal
+        :class:`GLShader` implementation.
+
+        Args:
+            name (str):
+                Uniform variable name.
+
+        Returns:
+            int:
+                OpenGL uniform location.
+        """
+
+        # Query the uniform location from the internal shader.
         return self.shader.uniform_location(name)
 
     def set_uniform_int(self, name, value):
-        """Set integer uniform."""
+        """Upload an integer uniform.
 
+        Args:
+            name (str):
+                Uniform variable name.
+
+            value (int):
+                Integer value.
+
+        Returns:
+            None
+        """
+
+        # Forward the uniform to the internal shader.
         self.shader.set_uniform_int(name, value)
 
     def set_uniform_float(self, name, value):
-        """Set float uniform."""
+        """Upload a floating-point uniform.
 
+        Args:
+            name (str):
+                Uniform variable name.
+
+            value (float):
+                Floating-point value.
+
+        Returns:
+            None
+        """
+
+        # Forward the uniform to the internal shader.
         self.shader.set_uniform_float(name, value)
 
     def set_uniform_vec2(self, name, x, y):
-        """Set vec2 uniform."""
+        """Upload a two-component vector uniform.
 
+        Args:
+            name (str):
+                Uniform variable name.
+
+            x (float):
+                X component.
+
+            y (float):
+                Y component.
+
+        Returns:
+            None
+        """
+
+        # Forward the uniform to the internal shader.
         self.shader.set_uniform_vec2(name, x, y)
 
     def set_uniform_vec3(self, name, x, y, z):
-        """Set vec3 uniform."""
+        """Upload a three-component vector uniform.
 
+        Args:
+            name (str):
+                Uniform variable name.
+
+            x (float):
+                X component.
+
+            y (float):
+                Y component.
+
+            z (float):
+                Z component.
+
+        Returns:
+            None
+        """
+
+        # Forward the uniform to the internal shader.
         self.shader.set_uniform_vec3(name, x, y, z)
 
     def set_uniform_vec4(self, name, value):
-        """Set vec4 uniform."""
+        """Upload a four-component vector uniform.
 
+        Args:
+            name (str):
+                Uniform variable name.
+
+            value (tuple[float, float, float, float]):
+                RGBA or generic vec4 values.
+
+        Returns:
+            None
+        """
+
+        # Forward the uniform to the internal shader.
         self.shader.set_uniform_vec4(name, value)
 
     def set_uniform_mat4(self, name, matrix):
-        """Set mat4 uniform."""
+        """Upload a 4×4 matrix uniform.
 
+        This method is typically used for transformation,
+        projection, or view matrices.
+
+        Args:
+            name (str):
+                Uniform variable name.
+
+            matrix:
+                4×4 matrix compatible with OpenGL.
+
+        Returns:
+            None
+        """
+
+        # Forward the uniform to the internal shader.
         self.shader.set_uniform_mat4(name, matrix)
 
 

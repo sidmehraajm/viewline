@@ -178,9 +178,15 @@ class Versions(object):
                 reviews_path, filename=versions_data["image"]
             )
 
-            versions_data["media"] = utils.pathResolver(
-                reviews_path, filename=versions_data["media"]
-            )
+            if versions_data.get("media"):
+                versions_data["media"] = utils.pathResolver(
+                    reviews_path, filename=versions_data["media"]
+                )
+
+            if versions_data.get("usd"):
+                versions_data["usd"] = utils.pathResolver(
+                    reviews_path, filename=versions_data["usd"]
+                )
 
         # Filter Versions By Project
         versions_data = list(

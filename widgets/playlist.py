@@ -92,8 +92,12 @@ Signals:
 
 from __future__ import absolute_import
 
+import importlib
+
 from PySide6 import QtCore
 from PySide6 import QtWidgets
+
+from viewline import scripts
 
 from viewline.widgets.styles import WaitCursor
 from viewline.widgets.labels import ProjectIconLabel
@@ -195,10 +199,8 @@ class PlaylistWidget(QtWidgets.QWidget):
 
         with WaitCursor():
             # Load project versions
-
-            from scripts import Versions
-
-            versions = Versions.get(self.current_project)
+            importlib.reload(scripts)
+            versions = scripts.Versions.get(self.current_project)
 
         # Update playlist widget
         self.set_versions(versions)

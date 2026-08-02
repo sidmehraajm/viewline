@@ -50,10 +50,10 @@ Notes:
 
 from __future__ import absolute_import
 
+from PySide6 import QtGui
+
 from viewline import utils
 from viewline import resources
-
-from PySide6 import QtGui
 
 
 class NamePixmap(QtGui.QPixmap):
@@ -212,6 +212,77 @@ class PathPixmap(QtGui.QPixmap):
             self.loadFromData(utils.getUrlContent(filepath))
         else:  # Load Local Image
             self.load(filepath)
+
+
+class ImageDataPixmap(QtGui.QPixmap):
+    """Pixmap created from a NumPy image.
+
+    This class converts a NumPy image array into a Qt ``QPixmap`` for display inside Qt widgets.
+    Both RGB and RGBA image formats are supported.
+
+    Attributes:
+        qimage (QtGui.QImage):
+            Internal QImage created from the NumPy buffer.
+    """
+
+    def __init__(self, image, **kwargs):
+        """Initialize the pixmap from a NumPy image.
+
+        Args:
+            image (numpy.ndarray):
+                Input RGB or RGBA image.
+
+            **kwargs:
+                Reserved for future extensions.
+        """
+
+        # Initialize the base QPixmap.
+        super(ImageDataPixmap, self).__init__()
+
+        # Extract the image dimensions.
+        height, width, channels = image.shape
+
+        # Determine the Qt image format.
+        if channels >= 4:
+
+            # Use RGBA format.
+            qt_format = QtGui.QImage.Format.Format_RGBA8888
+
+            # Bytes per image row.
+            bytes_per_line = width * 4
+        else:
+            # Use RGB format.
+            qt_format = QtGui.QImage.Format.Format_RGB888
+
+            # Bytes per image row.
+            bytes_per_line = width * 3
+
+        # Create a QImage that references the NumPy buffer.
+        self.qimage = QtGui.QImage(image.data, width, height, bytes_per_line, qt_format)
+
+        # Convert the QImage into a QPixmap.
+        self.convertFromImage(self.qimage)
+
+
+class NullPixmap(QtGui.QPixmap):
+    """Empty pixmap.
+
+    This class creates an empty ``QPixmap`` that can be used as a default placeholder where no valid image is available.
+    """
+
+    def __init__(self, *args, **kwargs):
+        """Initialize an empty pixmap.
+
+        Args:
+            *args:
+                Additional positional arguments.
+
+            **kwargs:
+                Reserved for future extensions.
+        """
+
+        # Initialize the base QPixmap.
+        super(NullPixmap, self).__init__()
 
 
 if __name__ == "__main__":

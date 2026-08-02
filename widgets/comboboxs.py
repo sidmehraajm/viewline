@@ -382,56 +382,159 @@ class ProjectCombobox(ContextCombobox):
 
 
 class ReviewTypeCombobox(ContextCombobox):
+    """Combo box for selecting a review type.
+
+    The available items are populated from ``constants.REVIEW_TYPES``.
+    """
 
     def __init__(self, parent, **kwargs):
+        """Initialize the review type combo box.
+
+        Args:
+            parent (QtWidgets.QWidget):
+                Parent widget.
+
+            **kwargs:
+                Additional ContextCombobox arguments.
+        """
+
+        # Populate the combo box with review types.
         kwargs["contextList"] = constants.REVIEW_TYPES
+
+        # Use the "value" field as the display key.
         kwargs["key"] = "value"
 
+        # Initialize the base ContextCombobox.
         super(ReviewTypeCombobox, self).__init__(parent, **kwargs)
 
 
 class StatusTypeCombobox(ContextCombobox):
+    """Combo box for selecting a review status.
+
+    The available items are populated from
+    ``constants.STATUS_LIST``. The default status is automatically set to ``Viewed``.
+    """
 
     def __init__(self, parent, **kwargs):
+        """Initialize the status combo box.
+
+        Args:
+            parent (QtWidgets.QWidget):
+                Parent widget.
+
+            **kwargs:
+                Additional ContextCombobox arguments.
+        """
+
+        # Populate the combo box with status values.
         kwargs["contextList"] = constants.STATUS_LIST
 
+        # Initialize the base ContextCombobox.
         super(StatusTypeCombobox, self).__init__(parent, **kwargs)
 
+        # Find the default "Viewed" status.
         self.defatlt = next(filter(lambda x: x[self.key] == "Viewed", self.contextList), dict())
+
+        # Select the default status.
         self.setValue(self.defatlt)
 
     def value(self, key=None):
+        """Return the selected status value.
+
+        Args:
+            key (str, optional):
+                Context key to retrieve.
+                Defaults to the widget key.
+
+        Returns:
+            object:
+                Selected context value.
+        """
+
+        # Use the default key when none is provided.
         key = key or self.key
 
+        # Return the requested context value.
         return self.context.get(key)
 
 
 class NormalCombobox(QtWidgets.QComboBox):
+    """Generic combo box for simple value lists.
+
+    This widget stores the original values internally while displaying their string representations.
+    """
 
     def __init__(self, parent, **kwargs):
+        """Initialize the combo box.
+
+        Args:
+            parent (QtWidgets.QWidget):
+                Parent widget.
+
+            **kwargs:
+                values (list, optional):
+                    Initial list of values.
+        """
+
+        # Initialize the base combo box.
         super(NormalCombobox, self).__init__(parent)
 
+        # Store the available values.
         self.values = kwargs.get("values")
 
+        # Populate the combo box when values exist.
         if self.values:
             self.setItems(values=self.values)
 
     def setItems(self, values=None):
+        """Populate the combo box.
+
+        Args:
+            values (list, optional):
+                Values to display.
+        """
+
+        # Store the supplied values.
         self.values = values or self.values
 
+        # Remove existing items.
         self.clear()
+
+        # Add each value as a string.
         self.addItems([str(x) for x in self.values])
 
     def setValue(self, value, **kwargs):
+        """Select a value in the combo box.
+
+        Args:
+            value (object):
+                Value to select.
+        """
+
+        # Find the corresponding item index.
         index = self.values.index(value)
+
+        # Update the current selection.
         self.setCurrentIndex(index)
 
     def getValue(self):
+        """Return the currently selected value.
+
+        Returns:
+            object:
+                Selected value, or None if no values exist or the selected value is ``"null"``.
+        """
+
+        # Retrieve the current item index.
         index = self.currentIndex()
+
+        # No values are available.
         if not self.values:
             return
 
+        # Convert the string "null" into None.
         value = None if self.values[index] == "null" else self.values[index]
+
         return value
 
 

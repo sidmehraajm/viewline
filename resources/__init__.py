@@ -134,29 +134,67 @@ def readJsonFile(filepath):
 
 
 def readShader(name):
-    """Return absolute shader path."""
+    """Read a complete OpenGL shader program.
 
+    Loads both the vertex shader and fragment shader associated with the specified shader name.
+
+    Expected Files:
+        materials/<name>.vert
+        materials/<name>.frag
+
+    Args:
+        name (str):
+            Shader program name without file extension.
+
+    Returns:
+        tuple[str, str]:
+            Vertex shader source followed by fragment shader source.
+    """
+
+    # Resolve the vertex shader file.
     vertex_path = os.path.abspath(os.path.join(CURRENT_PATH, "materials", f"{name}.vert"))
 
+    # Read the vertex shader source.
     with open(vertex_path, "r", encoding="utf-8") as stream:
         vertex_source = stream.read()
 
+    # Resolve the fragment shader file.
     fragment_path = os.path.abspath(os.path.join(CURRENT_PATH, "materials", f"{name}.frag"))
 
+    # Read the fragment shader source.
     with open(fragment_path, "r", encoding="utf-8") as stream:
         fragment_source = stream.read()
 
+    # Return both shader sources.
     return vertex_source, fragment_source
 
 
 def readVertexShader(name):
-    """Return absolute vertex shader path."""
+    """Read a vertex shader source file.
 
+    Loads only the vertex shader associated with the specified shader
+    name.
+
+    Expected File:
+        materials/<name>.vert
+
+    Args:
+        name (str):
+            Vertex shader name without file extension.
+
+    Returns:
+        str:
+            Vertex shader source code.
+    """
+
+    # Resolve the vertex shader file.
     vertex_path = os.path.abspath(os.path.join(CURRENT_PATH, "materials", f"{name}.vert"))
 
+    # Read the vertex shader source.
     with open(vertex_path, "r", encoding="utf-8") as stream:
         vertex_source = stream.read()
 
+    # Return the shader source.
     return vertex_source
 
 

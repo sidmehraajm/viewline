@@ -52,6 +52,8 @@ from __future__ import absolute_import
 
 from PySide6 import QtWidgets
 
+from viewline import constants
+
 from viewline.widgets.styles import SetStylesheet
 
 

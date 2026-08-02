@@ -60,8 +60,7 @@ class SequenceDisplayDelegate(QtWidgets.QStyledItemDelegate):
     """
     Custom display delegate for sequence-aware file visualization.
 
-    This delegate converts numbered image sequence filenames into
-    collapsed #### format for cleaner display inside QFileDialog.
+    This delegate converts numbered image sequence filenames into collapsed #### format for cleaner display inside QFileDialog.
 
     Example:
         Input:
@@ -98,8 +97,7 @@ class SequenceFilterProxyModel(QtCore.QSortFilterProxyModel):
     """
     Proxy model used for collapsing image sequences.
 
-    This model filters duplicate sequence frames and only displays
-    a single representative item for each detected image sequence.
+    This model filters duplicate sequence frames and only displays a single representative item for each detected image sequence.
 
     Example:
         Input Files:

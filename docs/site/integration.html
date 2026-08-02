@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><link rel="canonical" href="https://subing85.github.io/viewline/integration.html" />
+      <link rel="shortcut icon" href="img/favicon.ico" />
+    <title>Studio Integration - Viewline doc</title>
+    <link rel="stylesheet" href="css/theme.css" />
+    <link rel="stylesheet" href="css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Studio Integration";
+        var mkdocs_page_input_path = "integration.md";
+        var mkdocs_page_url = "/viewline/integration.html";
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href="index.html" class="icon icon-home"> Viewline doc
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="./search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="index.html">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="architecture.html">Architecture</a>
+                </li>
+              </ul>
+              <ul class="current">
+                <li class="toctree-l1 current"><a class="reference internal current" href="#">Studio Integration</a>
+    <ul class="current">
+    </ul>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="call.html">How to Run?</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="demo.html">Demo</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="support.html">Support</a>
+                </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Viewline doc</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="index.html" class="icon icon-home" aria-label="Docs"></a></li>
+      <li class="breadcrumb-item active">Studio Integration</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h3 id="studio-integration">Studio Integration</h3>
+<p><span style="color:green;"><strong>How to customized based on studio workflows?</strong></p></p>
+<hr />
+<p style="text-align: justify;">
+Viewline ships with a lightweight JSON-based implementation that allows the application to run immediately without requiring a production tracking system.
+</p>
+
+<p style="text-align: justify;">
+In a production environment, studios should replace these JSON examples with queries to their own production management system (for example ShotGrid, FTrack, or an in-house database).
+</p>
+
+<p style="text-align: justify;">
+The default implementation demonstrates how Viewline expects data to be structured. Only the data retrieval and submission logic needs to be customized. The Viewline itself does not require modification.
+</p>
+
+<blockquote>
+<ul>
+<li><strong>Projects</strong></li>
+<li><strong>Versions</strong></li>
+<li><strong>Review notes</strong></li>
+</ul>
+</blockquote>
+<hr />
+<h3 id="projects">Projects</h3>
+<blockquote>
+<ul>
+<li>Projects provide the top-level playlist displayed in the Review Player.</li>
+<li>The default implementation reads project information from a JSON file.</li>
+<li>Replace this implementation with your studio's production tracking query.</li>
+</ul>
+</blockquote>
+<p><strong>Modify the following method:</strong></p>
+<pre><code class="language-python">
+# ./scripts/__init__.py
+
+class Projects
+
+    @classmethod
+    def get(cls):
+
+</code></pre>
+<p><strong>Default Example</strong>, the sample project data is located in:</p>
+<pre><code>./resources/presets/projects.json
+</code></pre>
+<p><span style="color:green;">Use this file as a reference for the expected data structure.</span></p>
+<p style="text-align: justify;">
+The returned data should contain the information required to populate the Project Browser, such as:
+</p>
+
+<pre><code class="language-json">    {
+        &quot;type&quot;: &quot;Project&quot;,
+        &quot;id&quot;: 358,
+        &quot;code&quot;: &quot;SCE&quot;,
+        &quot;name&quot;: &quot;Super Chase&quot;,
+        &quot;created_at&quot;: &quot;2026-04-26 10:41:45:PM&quot;,
+        &quot;image&quot;: &quot;..../super_chase.png&quot;,
+        &quot;sg_description&quot;: &quot;viewline test project&quot;
+    }
+</code></pre>
+<p><span style="color:magenta;"><em>Studios are free to include additional metadata if required.</em></p></p>
+<hr />
+<h2 id="versions">Versions</h2>
+<blockquote>
+<ul>
+<li>Versions represent published media available for review.</li>
+<li>The default implementation reads version information from a JSON file.</li>
+<li>Studios should replace this implementation with queries to their production tracking system.</li>
+</ul>
+</blockquote>
+<p><strong>Modify the following method:</strong></p>
+<pre><code class="language-python">
+# ./scripts/__init__.py
+
+class Versions
+
+    @classmethod
+    def get(cls):
+
+</code></pre>
+<p><strong>Default Example</strong>, version data is located in:</p>
+<pre><code>./resources/presets/versions.json
+</code></pre>
+<p><span style="color:green;">Use this file as a reference for the expected data structure.</span></p>
+<p><strong>The returned data typically includes:</strong></p>
+<pre><code class="language-json">    {
+        &quot;type&quot;: &quot;Version&quot;,
+        &quot;id&quot;: 2998,
+        &quot;code&quot;: &quot;shot-info-101&quot;,
+        &quot;project&quot;: {
+            &quot;id&quot;: 358,
+            &quot;name&quot;: &quot;Super Chase&quot;,
+            &quot;type&quot;: &quot;Project&quot;
+        },
+        &quot;entity&quot;: {
+            &quot;id&quot;: 1999,
+            &quot;name&quot;: &quot;shot-101&quot;,
+            &quot;type&quot;: &quot;Shot&quot;
+        },
+        &quot;sg_task&quot;: {
+            &quot;id&quot;: 2999,
+            &quot;name&quot;: &quot;compositing&quot;,
+            &quot;type&quot;: &quot;Task&quot;
+        },
+        &quot;sg_status_list&quot;: &quot;rev&quot;,
+        &quot;description&quot;: &quot;pipeline test&quot;,
+        &quot;created_at&quot;: &quot;2026-03-16 05:29:13:PM&quot;,
+        &quot;created_by&quot;: {
+            &quot;id&quot;: 34,
+            &quot;name&quot;: &quot;Test 0.0.1&quot;,
+            &quot;type&quot;: &quot;User&quot;
+        },
+        &quot;image&quot;: &quot;./render/shot-101/shot-101.png&quot;,
+        &quot;media&quot;: &quot;./render/shot-101/shot-101.mp4&quot;
+    },
+</code></pre>
+<p><span style="color:magenta;"><em>Additional metadata may be included depending on the studio workflow.</em></span></p>
+<hr />
+<h2 id="review-notes">Review Notes</h2>
+<blockquote>
+<ul>
+<li><p style="text-align: justify;">Review Notes are used to display existing comments and submit new feedback during playback.</p></li>
+<li><p style="text-align: justify;">The default implementation stores review notes in a JSON file.</p></li>
+<li><p style="text-align: justify;">Production environments should replace this implementation with database queries and write operations.</p></li>
+</ul>
+</blockquote>
+<p><strong>1, Modify the following method for <span style="color:green;">query</span> existing review notes:</strong></p>
+<pre><code class="language-python">
+# ./scripts/__init__.py
+
+class Review
+
+    @classmethod
+    def get(cls):
+
+</code></pre>
+<p>This method should return all review notes associated with the selected version.</p>
+<p><strong>2, Modify the following method for <span style="color:green;">create</span> new review notes:</strong></p>
+<pre><code class="language-python">
+# ./scripts/__init__.py
+
+class Review
+
+    @classmethod
+    def set(cls):
+
+</code></pre>
+<p>This method should submit newly created review notes to your production tracking system.</p>
+<p>The default implementation demonstrates the expected data structure only.</p>
+<p><strong>Default Example</strong>, review data is located in:</p>
+<pre><code>./resources/presets/reviews.json
+</code></pre>
+<p><em>Use this file as a reference when integrating with your production database.</em></p>
+<p><strong>The review data typically includes:</strong></p>
+<pre><code class="language-json">
+    [
+        {
+            &quot;id&quot;: 10000,
+            &quot;type&quot;: &quot;Note&quot;,
+            &quot;subject&quot;: &quot;superman's Note on shot-info-101 and  shot-101&quot;,
+            &quot;content&quot;: &quot;test comments&quot;,
+            &quot;created_at&quot;: &quot;2026-07-12 11:46:45:AM&quot;,
+            &quot;created_by&quot;: {
+                &quot;id&quot;: 101,
+                &quot;name&quot;: &quot;superman&quot;,
+                &quot;type&quot;: &quot;HumanUser&quot;
+            },
+            &quot;project&quot;: {
+                &quot;id&quot;: 358,
+                &quot;name&quot;: &quot;Super Chase&quot;,
+                &quot;type&quot;: &quot;Project&quot;
+            },
+            &quot;publish_status&quot;: &quot;published&quot;,
+            &quot;sg_review_type&quot;: &quot;Comment&quot;,
+            &quot;sg_status_list&quot;: &quot;rev&quot;,
+            &quot;tasks&quot;: [
+                {
+                    &quot;id&quot;: 2999,
+                    &quot;name&quot;: &quot;compositing&quot;,
+                    &quot;type&quot;: &quot;Task&quot;
+                }
+            ],
+            &quot;attachments&quot;: [
+                {
+                    &quot;id&quot;: 10000,
+                    &quot;type&quot;: &quot;Attachment&quot;,
+                    &quot;created_at&quot;: &quot;2026-07-12 11:46:45:AM&quot;,
+                    &quot;created_by&quot;: {
+                        &quot;id&quot;: 101,
+                        &quot;name&quot;: &quot;superman&quot;,
+                        &quot;type&quot;: &quot;HumanUser&quot;
+                    },
+                    &quot;file_extension&quot;: &quot;png&quot;,
+                    &quot;filename&quot;: &quot;1107178060.png&quot;,
+                    &quot;image&quot;: &quot;media/1107178060.png&quot;,
+                    &quot;project&quot;: {
+                        &quot;id&quot;: 358,
+                        &quot;name&quot;: &quot;Super Chase&quot;,
+                        &quot;type&quot;: &quot;Project&quot;
+                    }
+                }
+            ],
+            &quot;replies&quot;: [
+                {
+                    &quot;id&quot;: 10000,
+                    &quot;type&quot;: &quot;Reply&quot;,
+                    &quot;content&quot;: &quot;ok, I will&quot;,
+                    &quot;created_at&quot;: &quot;2026-07-12 11:46:59:AM&quot;,
+                    &quot;created_by&quot;: {
+                        &quot;id&quot;: 101,
+                        &quot;name&quot;: &quot;superman&quot;,
+                        &quot;type&quot;: &quot;HumanUser&quot;
+                    },
+                    &quot;entity&quot;: {
+                        &quot;id&quot;: 10000,
+                        &quot;name&quot;: &quot;superman's Note on shot-info-101 and  shot-101&quot;,
+                        &quot;type&quot;: &quot;Note&quot;
+                    },
+                    &quot;publish_status&quot;: &quot;published&quot;,
+                    &quot;sg_review_type&quot;: &quot;Comment&quot;,
+                    &quot;attachments&quot;: []
+                },
+                {
+                    &quot;id&quot;: 10001,
+                    &quot;type&quot;: &quot;Reply&quot;,
+                    &quot;content&quot;: &quot;hi, how it it?&quot;,
+                    &quot;created_at&quot;: &quot;2026-07-12 11:47:36:AM&quot;,
+                    &quot;created_by&quot;: {
+                        &quot;id&quot;: 101,
+                        &quot;name&quot;: &quot;superman&quot;,
+                        &quot;type&quot;: &quot;HumanUser&quot;
+                    },
+                    &quot;entity&quot;: {
+                        &quot;id&quot;: 10000,
+                        &quot;name&quot;: &quot;superman's Note on shot-info-101 and  shot-101&quot;,
+                        &quot;type&quot;: &quot;Note&quot;
+                    },
+                    &quot;publish_status&quot;: &quot;published&quot;,
+                    &quot;sg_review_type&quot;: &quot;Comment&quot;,
+                    &quot;attachments&quot;: [
+                        {
+                            &quot;id&quot;: 10001,
+                            &quot;type&quot;: &quot;Attachment&quot;,
+                            &quot;created_at&quot;: &quot;2026-07-12 11:47:36:AM&quot;,
+                            &quot;created_by&quot;: {
+                                &quot;id&quot;: 101,
+                                &quot;name&quot;: &quot;superman&quot;,
+                                &quot;type&quot;: &quot;HumanUser&quot;
+                            },
+                            &quot;file_extension&quot;: &quot;png&quot;,
+                            &quot;filename&quot;: &quot;1617757548.png&quot;,
+                            &quot;image&quot;: &quot;media/1617757548.png&quot;,
+                            &quot;project&quot;: {
+                                &quot;id&quot;: 358,
+                                &quot;name&quot;: &quot;Super Chase&quot;,
+                                &quot;type&quot;: &quot;Project&quot;
+                            }
+                        }
+                    ]
+                }
+            ],
+            &quot;note_links&quot;: [
+                {
+                    &quot;id&quot;: 2998,
+                    &quot;name&quot;: &quot;shot-info-101&quot;,
+                    &quot;type&quot;: &quot;Version&quot;
+                }
+            ]
+        }
+    ]
+
+</code></pre>
+<p><strong>Data Flow</strong>, The default application follows the workflow below.</p>
+<pre><code class="language-text">
+    Projects
+        │
+        ▼
+    Project Browser
+        │
+        ▼
+    Versions
+        │
+        ▼
+    Media Player
+        │
+        ▼
+    Review Notes
+        │
+        ├── Query Existing Notes
+        │
+        └── Submit New Notes
+
+</code></pre>
+<p><span style="color:magenta;">Only the highlighted data providers need to be replaced for studio integration.</span></p>
+<hr />
+<h3 id="why-json">Why JSON?</h3>
+<p>The JSON files included with Viewline are intended solely as reference implementations.</p>
+<p>They allow developers to:</p>
+<ul>
+<li>Understand the expected data structure.</li>
+<li>Run Viewline without a production tracking system.</li>
+<li>Prototype integrations quickly.</li>
+<li>Test the Viewline Player independently.</li>
+</ul>
+<p style="text-align: justify;">Once integration is complete, the JSON files are no longer required and can be replaced entirely by your production tracking system.</p>
+
+<p style="text-align: justify;">
+The default implementation demonstrates how Viewline expects data to be structured. Only the data retrieval and submission logic needs to be customized. The Viewline itself does not require modification.</p>
+
+<hr />
+<p><strong>© Support, subing85@gmail.com.</strong></p>
+<hr />
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="architecture.html" class="btn btn-neutral float-left" title="Architecture"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="call.html" class="btn btn-neutral float-right" title="How to Run?">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+    
+      <span><a href="architecture.html" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="call.html" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = ".";</script>
+    <script src="js/theme_extra.js"></script>
+    <script src="js/theme.js"></script>
+      <script src="search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>

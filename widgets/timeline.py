@@ -135,6 +135,8 @@ class TimelineWidget(QtWidgets.QWidget):
 
         self.current_frame = frame
 
+        # print("\nset_current_frame", frame)
+
         # Refresh widget
         self.update()
 

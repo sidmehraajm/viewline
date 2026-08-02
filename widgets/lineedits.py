@@ -189,23 +189,73 @@ class FontSizeSpinBox(QtWidgets.QSpinBox):
 
 
 class InputLineEdit(QtWidgets.QLineEdit):
+    """Single-line text input widget.
+
+    This widget extends ``QLineEdit`` by providing helper methods for setting and retrieving values. It also supports optional read-only mode during initialization.
+
+    Attributes:
+        None.
+    """
 
     def __init__(self, parent, **kwargs):
+        """Initialize the input line edit.
+
+        Args:
+            parent (QtWidgets.QWidget):
+                Parent widget.
+
+            **kwargs:
+                Optional keyword arguments.
+
+                readonly (bool):
+                    Whether the line edit is read-only.
+        """
+
+        # Initialize the base QLineEdit.
         super(InputLineEdit, self).__init__(parent)
 
+        # Enable read-only mode if requested.
         if kwargs.get("readonly"):
             self.setReadOnly(True)
 
     def setValue(self, value, **kwargs):
+        """Set the line edit value.
+
+        Converts the supplied value to a string before displaying it. Passing ``None`` clears the widget.
+
+        Args:
+            value (Any):
+                Value to display.
+
+            **kwargs:
+                Reserved for future extensions.
+        """
+
+        # Clear the widget for empty values.
         if value is None:
             self.clear()
             return
 
+        # Convert non-string values to strings.
         value = value if isinstance(value, str) else str(value)
+
+        # Update the displayed text.
         self.setText(value)
 
     def getValue(self):
+        """Return the current value.
+
+        Leading and trailing whitespace is removed before returning the value. Empty strings are returned as ``None``.
+
+        Returns:
+            str | None:
+                Trimmed text, or ``None`` if empty.
+        """
+
+        # Read the current text.
         value = self.text().strip()
+
+        # Return None for empty values.
         return value or None
 
 

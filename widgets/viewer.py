@@ -128,24 +128,17 @@ from __future__ import absolute_import
 
 import numpy
 
-from OpenGL import GL
-
 from PySide6 import QtGui
 from PySide6 import QtCore
 from PySide6 import QtWidgets
-from PySide6 import QtOpenGLWidgets
 
-from viewline import utils
 from viewline import logger
 from viewline import constants
 
+from viewline.playback.reader import SequenceReader
 
-from viewline.materials.gl_shader import GLShader
-from viewline.materials.gl_texture import GLTexture
-from viewline.materials.gl_screen import FullscreenQuad
-from viewline.materials.gl_ocio_shader import OCIOShader
-
-from viewline.widgets.annotations import Sketch
+from widgets.pixmaps import NullPixmap
+from widgets.pixmaps import ImageDataPixmap
 
 from viewline.widgets.buttons import TxtButton
 from viewline.widgets.buttons import OpenButton
@@ -168,15 +161,22 @@ from viewline.widgets.buttons import RectangleButton
 from viewline.widgets.buttons import PlayPauseButton
 from viewline.widgets.buttons import WatermarkMenuButton
 
+from viewline.widgets.messagebox import MessageBox
+
 from viewline.widgets.sliders import VolumeSlider
 
 from viewline.widgets.labels import ThicknesLabel
 from viewline.widgets.labels import ToolNameLabel
+from viewline.widgets.labels import ViewspanLabel
 
 from viewline.widgets.comboboxs import FbsCombobox
 from viewline.widgets.comboboxs import AovsCombobox
 
 from viewline.widgets.timeline import TimelineWidget
+
+
+from viewline.widgets.viewer2d import Viewer2dLayout
+from viewline.widgets.viewer3d import Viewer3dLayout
 
 from viewline.widgets.layouts import VerticalLayout
 from viewline.widgets.layouts import HorizontalLayout
@@ -214,6 +214,8 @@ class ViewFrame(QtWidgets.QFrame):
     def __init__(self, parent, *args, **kwargs):
         super(ViewFrame, self).__init__(parent)
 
+        self.viewer = None
+
         # Apply frame appearance
         self.setFrameShape(QtWidgets.QFrame.StyledPanel)
         self.setFrameShadow(QtWidgets.QFrame.Raised)
@@ -231,8 +233,20 @@ class ViewFrame(QtWidgets.QFrame):
         # --------------------------------------------------
         # OpenGL Viewer
         # --------------------------------------------------
-        self.viewer = GLViewer(self)
-        self.verticallayout.addWidget(self.viewer)
+        # self.viewer = GLViewer(self)
+        # self.verticallayout.addWidget(self.viewer)
+
+        self.horizontallayout = HorizontalLayout(None, space=0, margins=(0, 0, 0, 0))
+        self.verticallayout.addLayout(self.horizontallayout)
+
+        self.viewer2dLayout = Viewer2dLayout(None, space=2, margins=(0, 0, 0, 0))
+        self.horizontallayout.addLayout(self.viewer2dLayout)
+
+        self.viewer3dLayout = Viewer3dLayout(None, space=2, margins=(0, 0, 0, 0))
+        self.horizontallayout.addLayout(self.viewer3dLayout)
+
+        self.viewer2d = self.viewer2dLayout.viewer2d
+        self.viewer3d = self.viewer3dLayout.viewer3d
 
         # --------------------------------------------------
         # Timeline Widget
@@ -247,6 +261,35 @@ class ViewFrame(QtWidgets.QFrame):
         # Playback control toolbar
         self.timelineToolbarLayout = TimelineToolbarLayout(None, space=10, margins=(5, 5, 5, 5))
         self.verticallayout.addLayout(self.timelineToolbarLayout)
+
+    def set_viewer_type(self, category):
+
+        if category == "usd":
+            self.viewer = self.viewer3dLayout.viewer3d
+
+            self.viewer2dLayout.viewer2d.setVisible(False)
+            self.viewer2dLayout.viewer2dMenubar.setVisible(False)
+
+            self.viewer3dLayout.viewer3d.setVisible(True)
+            self.viewer3dLayout.viewer3dMenubar.setVisible(True)
+
+            self.viewer2dLayout.viewer2d.is_enabled = False
+            self.viewer3dLayout.viewer3d.is_enabled = True
+
+        else:
+            self.viewer = self.viewer2dLayout.viewer2d
+
+            self.viewer3dLayout.viewer3d.setVisible(False)
+            self.viewer3dLayout.viewer3dMenubar.setVisible(False)
+
+            self.viewer2dLayout.viewer2d.setVisible(True)
+            self.viewer2dLayout.viewer2dMenubar.setVisible(True)
+
+            self.viewer2dLayout.viewer2d.is_enabled = True
+            self.viewer3dLayout.viewer3d.is_enabled = False
+
+    def get_active_viewer(self):
+        return self.viewer
 
 
 class ViewToolbarLayout(HorizontalLayout):
@@ -1110,7 +1153,7 @@ class TimelineToolbarLayout(HorizontalLayout):
         """
 
         # Only applies to video media
-        if typed != "movie":
+        if typed == "sequence":
             return
 
         # Find matching FPS preset
@@ -1136,633 +1179,354 @@ class TimelineToolbarLayout(HorizontalLayout):
         self.fps_chanaged.emit(value)
 
 
-class GLViewer(QtOpenGLWidgets.QOpenGLWidget):
-    """Modern OpenGL image viewer."""
+class ViewspanWidget(QtWidgets.QScrollArea):
+    """Image preview viewer widget.
 
-    render_finished = QtCore.Signal(str)
+    This widget provides an interactive image preview area for viewing still images and image sequences.
+    It supports loading images, zooming, panning, drag-and-drop, saving the current preview, and clearing the viewer.
 
-    def __init__(self, parent=None):
-        """Create OpenGL viewer."""
+    Responsibilities:
+        - Display preview images.
+        - Support drag-and-drop image loading.
+        - Handle image zooming and panning.
+        - Save and clear preview images.
+        - Report image resolution.
 
-        super().__init__(parent)
+    Features:
+        - Mouse wheel zoom.
+        - Mouse drag panning.
+        - Image sequence support.
+        - Drag-and-drop loading.
+        - High-quality image scaling.
 
-        # Expand inside layouts.
+    Attributes:
+        filepath (str):
+            Current source image path.
 
-        # Configure expanding size policy
-        sizePolicy = QtWidgets.QSizePolicy(
-            QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Expanding
-        )
+        previewPixmap (QtGui.QPixmap):
+            Displayed preview image.
 
-        self.setSizePolicy(sizePolicy)
+        zoom_factor (float):
+            Current zoom scale.
 
-        # Enable multisampling.
+        zoom_step (float):
+            Zoom increment.
 
-        self.set_samples(constants.VIEWER_SAMPLES_RATE)
+        min_zoom (float):
+            Minimum zoom level.
 
-        self.ocio_processor = None
+        max_zoom (float):
+            Maximum zoom level.
 
-        # OpenGL resources.
+        is_panning (bool):
+            Indicates whether panning is active.
 
-        self.texture = None
-        self.shader = None
-        self.quad = None
-        self.ocio_shader = None  # GPU OCIO shader
-        self.use_ocio = False
+        pan_start_pos (QtCore.QPoint):
+            Previous mouse position while panning.
 
-        # Current image.
+        viewspanLabel (ViewspanLabel):
+            Widget displaying the preview image.
+    """
 
-        self.numpy_frame = None
+    def __init__(self, parent, *args, **kwargs):
+        """Initialize the preview viewer.
 
-        # Image size.
-        self.image_width = 0
-        self.image_height = 0
-        self.channels = None
+        Args:
+            parent (QtWidgets.QWidget):
+                Parent widget.
 
-        # Display rectangle.
-        self.display_rect = QtCore.QRect()
+            *args:
+                Additional positional arguments.
 
-        # Timeline.
-        self.current_frame = None
+            **kwargs:
+                Additional keyword arguments.
+        """
 
-        # Camera
+        # Initialize the base scroll area.
+        super(ViewspanWidget, self).__init__(parent)
+
+        # Current source image path.
+        self.filepath = None
+
         # Current zoom factor.
-        # 1.0 = Fit
-        # 2.0 = 200%
+        self.zoom_factor = 1.0
 
-        self.zoom = 1.0
+        # Zoom increment per wheel step.
+        self.zoom_step = 0.1
 
-        # Pan offset (normalized).
-        self.pan = QtCore.QPointF(0.0, 0.0)
+        # Minimum allowed zoom.
+        self.min_zoom = 0.1
 
-        # Viewer mode.
-        self.fit_mode = True
+        # Maximum allowed zoom.
+        self.max_zoom = 5.0
 
-        self.display_parameter = None
-        self.style_parameter = None
-        self.filter_parameter = None
+        # Indicates whether the user is panning.
+        self.is_panning = False
 
-        # Annotation system.
-        self.sketch = Sketch()
+        # Initial mouse position during panning.
+        self.pan_start_position = QtCore.QPoint()
 
-    def set_samples(self, samples=8):
-        """Configure OpenGL multisampling."""
+        # Allow the widget to resize automatically.
+        self.setWidgetResizable(True)
 
-        surface = QtGui.QSurfaceFormat()
-        surface.setSamples(samples)
-        self.setFormat(surface)
+        # Enable drag-and-drop.
+        self.setAcceptDrops(True)
 
-    def initializeGL(self):
-        """Initialize OpenGL resources."""
+        # Create the scroll area container.
+        self.scrollAreaWidgetContents = QtWidgets.QWidget()
 
-        # Background colour.
-        GL.glClearColor(0.1, 0.1, 0.1, 1.0)
+        # Assign the container widget.
+        self.setWidget(self.scrollAreaWidgetContents)
 
-        # Enable alpha blending.
-        GL.glEnable(GL.GL_BLEND)
-        GL.glBlendFunc(GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA)
+        # Create the preview label.
+        self.viewspanLabel = ViewspanLabel(self)
 
-        # Create fullscreen quad.
-        self.quad = FullscreenQuad()
-        self.quad.initialize()
+        # Display the preview label.
+        self.setWidget(self.viewspanLabel)
 
-        # Create texture.
-        self.texture = GLTexture()
-        self.texture.initialize()
-
-        # Compile default shader.
-        self.shader = GLShader()
-        self.shader.initialize(name="display")
-
-        # if self.ocio_processor:
-        self.build_ocio_shader()
-
-    def resizeGL(self, width, height):
-        """Viewport resized."""
-
-        GL.glViewport(0, 0, width, height)
-
-    def set_frame(self, frame):
-        """Update current image.
-
-        Args:
-            frame (numpy.ndarray):
-                RGB or RGBA image.
-        """
-
-        # Store frame.
-        self.numpy_frame = frame
-
-        if frame is None:
-            return
-
-        # Image size.
-        # self.image_width = frame.width
-        # self.image_height = frame.height
-        self.image_height, self.image_width, self.channels = frame.shape
-
-        # Texture upload happens inside paintGL().
-        self.update()
-
-    def clear(self):
-        """Clear viewer."""
-
-        self.numpy_frame = None
-
-        # self.texture.clear()
-
-        self.sketch.clear_all()
-
-        self.update()
-
-    def set_current_frame(self, frame):
-        """Update timeline."""
-
-        self.current_frame = frame
-
-        self.sketch.set_frame(frame)
-
-    def paintGL(self):
-        """Render current frame.
-
-        Rendering Pipeline
-
-            CPU Image
-                │
-                ▼
-            GL Texture
-                │
-                ▼
-            Fragment Shader
-                │
-                ▼
-            Fullscreen Quad
-                │
-                ▼
-            Screen
-        """
-
-        # Clear framebuffer.
-        GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
-
-        # Nothing to draw.
-        if self.numpy_frame is None:
-            return
-
-        self.texture.upload(self.numpy_frame)
-
-        # Calculate display rectangle.
-        self.update_display_rect()
-
-        # Bind texture.
-        self.texture.bind(0)
-
-        if self.use_ocio:
-            self.active_shader = self.ocio_shader
-        else:
-            self.active_shader = self.shader
-
-        # Use texture shader.
-        self.active_shader.bind()
-
-        dpr = self.devicePixelRatioF()
-
-        viewport_width = int(self.width() * dpr)
-        viewport_height = int(self.height() * dpr)
-
-        # Physical OpenGL viewport size.
-        self.active_shader.set_uniform_vec2(
-            "viewportSize",
-            float(viewport_width),
-            float(viewport_height),
-        )
-
-        # Fitted image rectangle.
-        self.active_shader.set_uniform_vec4(
-            "displayRect",
-            (
-                float(self.display_rect.left()),
-                float(self.display_rect.top()),
-                float(self.display_rect.width()),
-                float(self.display_rect.height()),
-            ),
-        )
-
-        # Texture unit.
-        self.active_shader.set_uniform_int("imageTexture", 0)
-
-        if self.display_parameter:
-            self.active_shader.set_uniform_float(
-                self.display_parameter.control, self.display_parameter.value
-            )
-
-            if self.display_parameter.is_color:
-                self.active_shader.set_uniform_vec3(
-                    self.display_parameter.color_control, *self.display_parameter.color
-                )
-
-        if self.style_parameter:
-            self.active_shader.set_uniform_float(
-                self.style_parameter.control, self.style_parameter.value
-            )
-
-        if self.filter_parameter:
-            self.active_shader.set_uniform_vec2(
-                "uTexelSize", 1.0 / self.image_width, 1.0 / self.image_height
-            )
-
-            self.active_shader.set_uniform_vec2(
-                "uResolution",
-                float(self.image_width),
-                float(self.image_height),
-            )
-
-            self.active_shader.set_uniform_float(
-                self.filter_parameter.control, self.filter_parameter.value
-            )
-
-        # Draw fullscreen quad.
-        self.quad.draw()
-
-        # Release shader.
-        self.active_shader.release()
-
-        # Release texture.
-        self.texture.release()
-
-        # Draw overlays.
-        self.draw_overlay()
-
-    def update_display_rect(self):
-        """Calculate fitted display rectangle."""
-
-        if self.numpy_frame is None:
-            return
-
-        # Device scale.
-        dpr = self.devicePixelRatioF()
-
-        viewport_width = int(self.width() * dpr)
-        viewport_height = int(self.height() * dpr)
-
-        # Image aspect.
-        image_aspect = self.image_width / self.image_height
-
-        viewport_aspect = viewport_width / viewport_height
-
-        # Fit image.
-        if image_aspect > viewport_aspect:
-            draw_width = viewport_width
-            draw_height = int(draw_width / image_aspect)
-        else:
-            draw_height = viewport_height
-            draw_width = int(draw_height * image_aspect)
-
-        # Center image.
-        x = int((viewport_width - draw_width) / 2)
-        y = int((viewport_height - draw_height) / 2)
-
-        # Logical coordinates.
-        self.display_rect = QtCore.QRect(
-            int(x / dpr), int(y / dpr), int(draw_width / dpr), int(draw_height / dpr)
-        )
-
-    def fit_to_window(self):
-        """Fit image inside viewer."""
-
-        self.fit_mode = True
-        self.zoom = 1.0
-
-        self.pan = QtCore.QPointF()
-
-        self.update()
-
-    def set_actual_size(self):
-        """Display image at 100%."""
-
-        self.fit_mode = False
-        self.zoom = 1.0
-
-        self.pan = QtCore.QPointF()
-
-        self.update()
-
-    def set_zoom(self, zoom):
-        """Set viewer zoom.
-
-        Args:
-            zoom (float):
-                Zoom factor.
-        """
-
-        self.fit_mode = False
-
-        self.zoom = max(0.05, min(zoom, 32.0))
-
-        self.update()
-
-    def zoom_in(self):
-        """Increase zoom."""
-
-        self.set_zoom(self.zoom * 1.25)
-
-    def zoom_out(self):
-        """Decrease zoom."""
-
-        self.set_zoom(self.zoom / 1.25)
-
-    def set_pan(self, x, y):
-        """Move camera.
-
-        Args:
-            x (float):
-                Horizontal offset.
-
-            y (float):
-                Vertical offset.
-        """
-
-        self.pan = QtCore.QPointF(x, y)
-
-        self.update()
-
-    def reset_view(self):
-        """Reset camera."""
-
-        self.zoom = 1.0
-
-        self.pan = QtCore.QPointF()
-
-        self.fit_mode = True
-
-        self.update()
-
-    def wheelEvent(self, event):
-        """Mouse wheel zoom."""
-
-        delta = event.angleDelta().y()
-
-        if delta > 0:
-            self.zoom_in()
-        else:
-            self.zoom_out()
-
-    def _mousePressEvent(self, event):
-        if event.button() == QtCore.Qt.MiddleButton:
-            self._last_pan_pos = event.position()
-            return
-
-        super().mousePressEvent(event)
-
-    def _mouseMoveEvent(self, event):
-        if event.buttons() & QtCore.Qt.MiddleButton:
-            delta = event.position() - self._last_pan_pos
-            self._last_pan_pos = event.position()
-
-            self.pan += QtCore.QPointF(delta.x(), -delta.y())
-            self.update()
-            return
-
-        super().mouseMoveEvent(event)
-
-    def _mousePressEvent(self, event):
-        if not self.sketch.enabled:
-            return
-
-        point = self.widget_to_image_point(event.position().toPoint())
-
-        self.sketch.mousePressEvent(point)
-
-        self.update()
-
-    def mousePressEvent(self, event):
-        if not self.sketch.enabled:
-            return
-
-        point = self.widget_to_image_point(event.position().toPoint())
-
-        self.sketch.mousePressEvent(point)
-
-        self.update()
-
-    def mouseMoveEvent(self, event):
-        if not self.sketch.enabled:
-            return
-
-        if not (event.buttons() & QtCore.Qt.LeftButton):
-            return
-
-        point = self.widget_to_image_point(event.position().toPoint())
-
-        self.sketch.mouseMoveEvent(point)
-
-        self.update()
-
-    def mouseReleaseEvent(self, event):
-
-        if not self.sketch.enabled:
-            return
-
-        point = self.widget_to_image_point(event.position().toPoint())
-
-        self.sketch.mouseReleaseEvent(point)
-
-        self.update()
-
-    def undo_strokes(self):
-        """
-        Undo current frame annotation.
-        """
-
-        self.sketch.undo()
-
-        self.update()
-
-    def clear_strokes(self):
-        """
-        clear current frame annotation.
-        """
-
-        self.sketch.clear_all()
-
-        self.update()
-
-    def draw_overlay(self):
-        """
-        Draw all overlays.
-
-        This method handles:
-            - Text overlays
-            - Image overlays
-            - Overlay antialiasing
-            - Overlay positioning
-        """
-
-        # Create painter
-        painter = QtGui.QPainter(self)
-
-        # Enable render quality
-        # painter.setRenderHint(QtGui.QPainter.Antialiasing, True)
-        # painter.setRenderHint(QtGui.QPainter.TextAntialiasing, True)
-        # painter.setRenderHint(QtGui.QPainter.SmoothPixmapTransform, True)
-
-        # Draw pencil annotations
-        self.sketch.draw(
-            painter, point_converter=self.image_to_widget_point, rect=self.display_rect
-        )
-
-        painter.end()
-
-    def set_overlay_options(self, watermarks):
-        self.sketch.set_overlays(watermarks)
-        self.update()
-
-    def set_overlay_option(self, checked, key, position, context):
-        self.sketch.set_overlay(checked, key, position, context)
-        self.update()
-
-    def set_sketch_enabled(self, tool, enabled, font):
-        """
-        Enable or disable pencil tool.
-
-        Args:
-            enabled (bool): Pencil tool state.
-        """
-
-        if not self.current_frame:
-            return
-
-        self.sketch.set_tool(tool)
-        self.sketch.set_enabled(enabled)
-
-        self.sketch.set_image_size(self.image_width, self.image_height)
-        self.sketch.set_eraser_radius(10)
-        self.sketch.set_txt_font(font)
-
-    def widget_to_image_point(self, point):
-        """
-        Convert widget position to normalized image space.
-        """
-
-        rect = self.display_rect
-
-        x = (point.x() - rect.left()) / float(rect.width())
-        y = (point.y() - rect.top()) / float(rect.height())
-
-        x = max(0.0, min(1.0, x))
-        y = max(0.0, min(1.0, y))
-
-        return (x, y)
-
-    def image_to_widget_point(self, point):
-        """
-        Convert normalized image space to widget coordinates.
-        """
-
-        rect = self.display_rect
-
-        x = rect.left() + (point[0] * rect.width())
-        y = rect.top() + (point[1] * rect.height())
-
-        return QtCore.QPointF(x, y)
-
-    def render_current_frame(self):
-        """
-        Render source frame with annotations.
+    def resolution(self):
+        """Return the preview image resolution.
 
         Returns:
-            QImage
+            str:
+                Image resolution formatted as
+                ``"<width> x <height>"``.
         """
 
-        if self.numpy_frame is None:
-            return None
+        # Skip if no image is loaded.
+        if self.previewPixmap.isNull():
+            return
 
-        # Convert AVFrame -> RGB NumPy image.
-        frame = self.numpy_frame.to_ndarray(format="rgb24")
-        frame = numpy.ascontiguousarray(frame)
+        # Format the resolution string.
+        result = f"{int(self.previewPixmap.width())} x {int(self.previewPixmap.height())}"
 
-        height, width, channels = frame.shape
-        frame = numpy.ascontiguousarray(frame)
+        return result
 
-        if channels == 4:
-            image = QtGui.QImage(
-                frame.data, width, height, width * 4, QtGui.QImage.Format_RGBA8888
-            ).copy()
-        else:
-            image = QtGui.QImage(
-                frame.data,
-                width,
-                height,
-                width * 3,
-                QtGui.QImage.Format_RGB888,
-            ).copy()
+    def update_image(self):
+        """Refresh the displayed preview image."""
 
-        painter = QtGui.QPainter(image)
-        self.sketch.set_frame(self.current_frame)
+        # Skip if no image exists.
+        if self.previewPixmap.isNull():
+            return
 
-        image_rect = QtCore.QRect(0, 0, width, height)
-        self.sketch.draw(
-            painter,
-            point_converter=lambda point: QtCore.QPointF(
-                point[0] * width,
-                point[1] * height,
-            ),
-            rect=image_rect,
+        # Calculate scaled width.
+        width = int(self.previewPixmap.width() * self.zoom_factor)
+
+        # Calculate scaled height.
+        height = int(self.previewPixmap.height() * self.zoom_factor)
+
+        # Scale the preview image.
+        scaled_pixmap = self.previewPixmap.scaled(
+            width,
+            height,
+            QtCore.Qt.AspectRatioMode.KeepAspectRatio,
+            QtCore.Qt.TransformationMode.SmoothTransformation,
         )
 
-        painter.end()
+        # Display the scaled image.
+        self.viewspanLabel.setPixmap(scaled_pixmap)
 
-        return image
+    def set_pixmap_preview(self, pixmap):
+        """Display a pixmap preview.
 
-    def save_frame(self, filepath, post_process=False):
-        image = self.render_current_frame()
+        Args:
+            pixmap (QtGui.QPixmap):
+                Preview image.
+        """
 
-        if image:
-            utils.makedirs(filepath)
-            image.save(filepath)
-            LOGGER.info(f"Succeed, render to {filepath}")
+        # Store the pixmap.
+        self.previewPixmap = pixmap
 
-            if post_process:
-                self.render_finished.emit(filepath)
+        # Refresh the display.
+        self.update_image()
+
+        # Log the operation.
+        LOGGER.info(f"Succeed, loaded pixmap object")
+
+    def set_image_preview(self, filepath):
+        """Load and display an image.
+
+        Args:
+            filepath (str):
+                Image file path.
+        """
+
+        # Store the file path.
+        self.filepath = filepath
+
+        # Create the image reader.
+        self.reader = SequenceReader(filepath)
+
+        # Read the first frame.
+        image = self.reader.get_frame(constants.VL_START_FRAME)
+
+        # Ensure contiguous memory.
+        image = numpy.ascontiguousarray(image)
+
+        # Convert to a pixmap.
+        self.previewPixmap = ImageDataPixmap(image)
+
+        # Refresh the display.
+        self.update_image()
+
+        # Log the operation.
+        LOGGER.info(f"Succeed, loaded source file {self.filepath}")
+
+    def save_image_preview(self, filepath):
+        """Save the current preview image.
+
+        Args:
+            filepath (str):
+                Output image path.
+        """
+
+        # Ensure an image exists.
+        if self.previewPixmap.isNull():
+            # Notify the user.
+            MessageBox(self, "Critical", "Failure, no image is currently loaded to save.", ["Ok"])
+
+            # Log the warning.
+            LOGGER.warning(f"Failure, no image is currently loaded to save.")
+            return
+
+        # Save the image.
+        self.previewPixmap.save(filepath, "PNG", quality=100)
+
+        # Log the operation.
+        LOGGER.info(f"Succeed, saved your preview image to, {filepath}")
+
+    def clear_preview(self):
+        """Clear the current preview image."""
+
+        # Replace with an empty pixmap.
+        self.previewPixmap = NullPixmap()
+
+        # Refresh the label.
+        self.viewspanLabel.setPixmap(self.previewPixmap)
+
+    def dragEnterEvent(self, event):
+        """Accept supported drag-and-drop operations."""
+
+        # Accept dropped URLs.
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
+
+    def dropEvent(self, event):
+        """Load an image dropped onto the viewer."""
+
+        # Retrieve dropped URLs.
+        urls = event.mimeData().urls()
+
+        # Ignore empty drops.
+        if not urls:
+            return
+
+        # Get the first file.
+        filepath = urls[0].toLocalFile()
+
+        # Supported image formats.
+        valid_extensions = tuple(constants.IMAGE_EXTENSIONS)
+
+        # Load supported images.
+        if filepath.lower().endswith(valid_extensions):
+            self.set_image_preview(filepath)
+            event.acceptProposedAction()
+            return
+
+        # Display an error dialog.
+        MessageBox(
+            self,
+            "Critical",
+            f"Failure, please drop a valid image files.\n{valid_extensions}",
+            ["Ok"],
+        )
+
+        # Log the unsupported file.
+        LOGGER.warning(
+            f"Failure, Unsupported File, Please drop a valid image file {valid_extensions}."
+        )
+
+    def wheelEvent(self, event):
+        """Zoom the preview using the mouse wheel."""
+
+        # Ignore if no image exists.
+        if self.previewPixmap.isNull():
+            return
+
+        # Read wheel movement.
+        angle_delta = event.angleDelta().y()
+
+        # Zoom in.
+        if angle_delta > 0:
+            self.zoom_factor = min(self.max_zoom, self.zoom_factor + self.zoom_step)
+
+        # Zoom out.
         else:
-            LOGGER.error(f"Failure render to {filepath}")
+            self.zoom_factor = max(self.min_zoom, self.zoom_factor - self.zoom_step)
 
-            if post_process:
-                self.render_finished.emit(None)
+        # Refresh the display.
+        self.update_image()
 
-    def set_ocio(self, processor):
-        """Update the active OCIO display transform."""
+        # Consume the event.
+        event.accept()
 
-        self.ocio_processor = processor
+    def mousePressEvent(self, event):
+        """Start panning the preview."""
 
-        # Rebuild GPU shader if OpenGL already exists.
-        self.build_ocio_shader()
+        # Ignore if no image exists.
+        if self.previewPixmap.isNull():
+            return
 
-        self.update()
+        # Start panning.
+        if event.button() == QtCore.Qt.MouseButton.LeftButton:
 
-    def build_ocio_shader(self):
-        """Build GPU OCIO shader."""
+            # Enable panning mode.
+            self.is_panning = True
 
-        # if not self.ocio_processor:
-        #     return
+            # Store the initial mouse position.
+            self.pan_start_pos = event.pos()
 
-        self.ocio_shader = OCIOShader(None)
-        self.ocio_shader.build(self.ocio_processor)
+            # Display the closed-hand cursor.
+            self.setCursor(QtGui.QCursor(QtCore.Qt.CursorShape.ClosedHandCursor))
+            event.accept()
 
-        self.ocio_shader.release()
+    def mouseMoveEvent(self, event):
+        """Pan the preview image."""
 
-        self.use_ocio = self.ocio_processor.enabled
+        # Ignore if not panning.
+        if not self.is_panning:
+            return
 
-    def display_changed(self, parameter):
-        self.display_parameter = parameter
-        self.update()
+        # Calculate mouse movement.
+        delta = event.pos() - self.pan_start_pos
 
-    def style_changed(self, parameter):
-        self.style_parameter = parameter
-        self.update()
+        # Update the previous position.
+        self.pan_start_pos = event.pos()
 
-    def filter_changed(self, parameter):
-        self.filter_parameter = parameter
-        self.update()
+        # Get scrollbars.
+        h_scrollbar = self.horizontalScrollBar()
+        v_scrollbar = self.verticalScrollBar()
+
+        # Scroll horizontally.
+        h_scrollbar.setValue(h_scrollbar.value() - delta.x())
+
+        # Scroll vertically.
+        v_scrollbar.setValue(v_scrollbar.value() - delta.y())
+        event.accept()
+
+    def mouseReleaseEvent(self, event):
+        """Finish the current pan operation."""
+
+        # Ignore other buttons.
+        if event.button() != QtCore.Qt.MouseButton.LeftButton:
+            return
+
+        # Disable panning.
+        self.is_panning = False
+
+        # Restore the default cursor.
+        self.setCursor(QtGui.QCursor(QtCore.Qt.CursorShape.ArrowCursor))
+        event.accept()
 
 
 if __name__ == "__main__":
