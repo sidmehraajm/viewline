@@ -294,30 +294,58 @@ class GLViewer3d(GLViewer):
         GL.glFlush()
 
     def clear(self):
-        """Clear the current USD stage and reset the viewer contents."""
+        """Reset the 3D viewer and release the currently loaded USD scene.
 
+        Clears the OpenGL framebuffer, resets the viewer state, recreates the Hydra rendering engine,
+        restores the default navigation camera, and schedules a viewport repaint.
+
+        This method is typically called before loading a new USD stage to ensure no rendering state from the previous scene is reused.
+
+        Notes:
+            - The current OpenGL context must be active before modifying GPU
+              resources.
+            - A new ``UsdImagingGL.Engine`` instance is created to discard any
+              cached rendering state.
+            - The default interactive camera is restored.
+        """
         # Clear common viewer state and the OpenGL framebuffer.
         # super().clear()
 
+        # Make this widget's OpenGL context current.
         self.makeCurrent()
 
+        # Clear the viewport using the configured background color.
         GL.glClearColor(*self.background_color)
         GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
 
-        # Ensure all pending OpenGL commands are completed.
+        # Ensure all queued OpenGL commands have completed.
         GL.glFlush()
 
+        # Remove the currently loaded USD stage.
         self.stage = None
+
+        # Reset the active timeline frame.
         self.current_frame = None
+
+        # Return to the interactive viewport camera.
         self.use_scene_camera = False
+
+        # Create a fresh default navigation camera.
         self.camera = ViewCamera()
 
+        # Recreate the Hydra rendering engine.
         self.engine = UsdImagingGL.Engine()
+
+        # Configure the render buffer size.
         self.engine.SetRenderBufferSize(Gf.Vec2i(self.width(), self.height()))
+
+        # Configure the render viewport.
         self.engine.SetRenderViewport(Gf.Vec4d(0, 0, self.width(), self.height()))
 
+        # Release the OpenGL context.
         self.doneCurrent()
 
+        # Schedule a viewport repaint.
         self.update()
 
     def update_display_rect(self):
@@ -368,16 +396,40 @@ class GLViewer3d(GLViewer):
         # Frame the loaded scene in the viewport.
         self.frame_all()
 
+        # Collect all scene cameras.
         camera_prims = self.get_camera_prims()
 
+        # Notify the UI that cameras are available.
         self.stage_loaded.emit(camera_prims)
 
     def get_camera_prims(self):
+        """Return all camera primitives contained in the USD stage.
+
+        Traverses every prim in the stage and collects those derived from ``UsdGeom.Camera``.
+
+        Returns:
+            list[tuple[str, str, bool]]:
+                List containing:
+
+                - Camera name.
+                - Prim path.
+                - Default checked state.
+
+        Notes:
+            The third tuple value is intended for UI camera menu creation.
+        """
+
+        # Store discovered cameras.
         result = list()
 
+        # Traverse every prim in the stage.
         for prim in self.stage.TraverseAll():
+
+            # Ignore non-camera prims.
             if not prim.IsA(UsdGeom.Camera):
                 continue
+
+            # Store camera information.
             result.append((prim.GetName(), prim.GetPath().pathString, False))
 
         return result
@@ -419,19 +471,39 @@ class GLViewer3d(GLViewer):
         self.render_params.gammaCorrectColors = False
 
     def set_current_camera(self, camera):
-        """Use a camera prim from the USD stage."""
+        """Set the active viewport camera.
 
+        Switches between the interactive default viewport camera and a USD scene
+        camera.
+
+        Args:
+            camera (str):
+                Camera prim path or ``"/default"``.
+
+        Returns:
+            bool:
+                True if the camera was successfully activated, otherwise False.
+        """
+
+        # Switch back to the interactive camera.
         if camera == "/default":
+            # Disable scene camera rendering.
             self.use_scene_camera = False
         else:
+            # Find the requested camera prim.
             prim = self.stage.GetPrimAtPath(camera)
 
+            # Validate the prim type.
             if not prim or not prim.IsA(UsdGeom.Camera):
                 return False
 
+            # Store the scene camera.
             self.scene_camera = UsdGeom.Camera(prim)
+
+            # Enable scene camera rendering.
             self.use_scene_camera = True
 
+            # Refresh renderer state.
             self.update_view()
 
         return True
@@ -451,7 +523,7 @@ class GLViewer3d(GLViewer):
         aspect = width / height
 
         if self.use_scene_camera:
-            view_matrix, projection_matrix = self.get_scene_camera_matrices(aspect)
+            view_matrix, projection_matrix, camera_position = self.get_scene_camera_matrices(aspect)
 
         else:
             # Generate the current camera view matrix.
@@ -460,30 +532,63 @@ class GLViewer3d(GLViewer):
             # Generate the current projection matrix.
             projection_matrix = self.create_projection_matrix(aspect)
 
+            camera_position = self.camera.get_position()
+
         # Apply the camera state to Hydra.
         self.engine.SetCameraState(view_matrix, projection_matrix)
 
+        # Update the camera-mounted head light.
+        self.update_head_light(camera_position=camera_position)
+
     def get_scene_camera_matrices(self, aspect):
+        """Evaluate the active USD camera for the current frame.
+
+        Computes the camera view matrix, projection matrix, and world-space camera position from the animated USD camera.
+
+        Args:
+            aspect (float):
+                Current viewport aspect ratio.
+
+        Returns:
+            tuple:
+                Tuple containing:
+
+                - Gf.Matrix4d view matrix.
+                - Gf.Matrix4d projection matrix.
+                - Gf.Vec3d world-space camera position.
+
+        Raises:
+            RuntimeError:
+                If no scene camera has been assigned.
+
+        Notes:
+            The returned camera position is used for headlight positioning.
+        """
+
+        # Ensure a scene camera has been selected.
         if self.scene_camera is None:
             raise RuntimeError("No scene camera assigned.")
 
-        # Evaluate the camera at the current frame.
+        # Evaluate the camera at the current timeline frame.
         time = Usd.TimeCode(self.current_frame)
 
-        # Returns a fully evaluated Gf.Camera.
+        # Build a fully evaluated camera.
         gf_camera = self.scene_camera.GetCamera(time)
 
-        # Camera frustum.
+        # Access the camera frustum.
         frustum = gf_camera.frustum
 
-        # View matrix.
+        # Compute the view matrix.
         view_matrix = frustum.ComputeViewMatrix()
 
-        # Projection matrix.
-        # projection_matrix = frustum.ComputeProjectionMatrix()
+        # Compute the projection matrix.
         projection_matrix = Gf.Matrix4d(frustum.ComputeProjectionMatrix())
 
-        return view_matrix, projection_matrix
+        # Compute the world transform.
+        camera_transform = gf_camera.frustum.ComputeViewInverse()
+        camera_position = camera_transform.ExtractTranslation()
+
+        return view_matrix, projection_matrix, camera_position
 
     def create_lighting_state(self):
         """Create the viewport head light and material state.
@@ -524,7 +629,7 @@ class GLViewer3d(GLViewer):
         # Store the head light in the active lighting collection.
         self.lights = [self.head_light]
 
-    def update_head_light(self):
+    def update_head_light(self, camera_position=None):
         """Update the viewport head light from the camera position."""
 
         # Ignore lighting updates before Hydra initialisation.
@@ -535,8 +640,9 @@ class GLViewer3d(GLViewer):
         if not self.lights:
             return
 
-        # Get the current camera position.
-        camera_position = self.camera.get_position()
+        if not camera_position:
+            # Get the current camera position.
+            camera_position = self.camera.get_position()
 
         # Move the head light to the camera position.
         self.head_light.position = Gf.Vec4f(
@@ -894,23 +1000,79 @@ class GLViewer3d(GLViewer):
         return image
 
     def set_shading_mode(self, mode):
+        """Set the Hydra viewport shading mode.
+
+        Args:
+            mode (str):
+                Name of a value from ``UsdImagingGL.DrawMode``.
+        """
+
+        # Convert the string into a Hydra draw mode.
         draw_mode = getattr(UsdImagingGL.DrawMode, mode)
+
+        # Store the draw mode.
         self.render_params.drawMode = draw_mode
+
+        # Redraw the viewport.
         self.update()
 
     def set_complexity(self, value):
+        """Set the Hydra rendering complexity.
+
+        Controls subdivision refinement and rendering detail.
+
+        Args:
+            value (float):
+                Hydra complexity value.
+        """
+
+        # Store the complexity value.
         self.render_params.complexity = value
+
+        # Refresh the viewport.
         self.update()
 
     def set_purposes(self, value):
+        """Enable a USD display purpose.
+
+        Args:
+            value (str):
+                Render purpose attribute name such as
+                ``showProxy``, ``showRender`` or ``showGuides``.
+        """
+
+        # Enable the requested render purpose.
         setattr(self.render_params, value, True)
+
+        # Redraw the viewport.
         self.update()
 
     def set_materials_enabled(self, enabled):
+        """Enable or disable USD scene materials.
+
+        Args:
+            enabled (bool):
+                True to render bound materials.
+        """
+
+        # Store the material rendering state.
         self.render_params.enableSceneMaterials = enabled
+
+        # Refresh the viewport.
         self.update()
 
     def set_grid_enabled(self, enabled):
+        """Enable or disable the viewport grid.
+
+        Args:
+            enabled (bool):
+                True to display the viewport grid.
+
+        Notes:
+            Grid rendering has not yet been implemented.
+        """
+
+        # Placeholder for future implementation.
         pass
 
 

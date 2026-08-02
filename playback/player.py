@@ -8,7 +8,7 @@ Module:
     ./playback/player.py
 
 Description:
-    The main playback controller used by the Review Player framework.
+    The main playback controller used by the Viewline Player framework.
 
 The media player is responsible for:
     - Playback control
@@ -488,8 +488,7 @@ class SequencePlayer(BasePlayer):
     def play(self):
         """Start playback.
 
-        Starts QTimer-based playback using the
-        current FPS value.
+        Starts QTimer-based playback using the current FPS value.
 
         Behavior:
             - Starts playback timer
@@ -1791,100 +1790,154 @@ class AudioPlayer(QtCore.QObject):
 
 
 class UsdPlayer(BasePlayer):
+    """Playback controller for OpenUSD stages.
+
+    The player manages timeline playback for USD scenes using the stage time codes instead of decoded image frames.
+    Playback is driven by a Qt timer and synchronized with the Hydra renderer through emitted signals.
+
+    Attributes:
+        reader (UsdReader):
+            Active USD reader.
+
+        fps (float):
+            Playback frames per second.
+
+        start_frame (int):
+            Timeline start frame.
+
+        current_frame (int):
+            Current playback frame.
+
+        end_frame (int):
+            Timeline end frame.
+
+        frame_count (int):
+            Total timeline frames.
+
+        loop_enabled (bool):
+            Enables looping playback.
+
+        is_playing (bool):
+            Indicates whether playback is active.
+
+        current_aov (str):
+            Currently selected render output.
+
+        cache (FrameCache):
+            Cached playback information.
+
+        timer (QtCore.QTimer):
+            Playback timer.
+    """
 
     def __init__(self):
-        """Initialize movie player."""
+        """Initialize the USD playback controller."""
 
+        # Initialize the base player.
         super().__init__()
 
-        # Playback Reader
+        # Active USD reader.
         self.reader = None
 
-        # Playback FPS
+        # Playback frame rate.
         self.fps = None
 
-        # Timeline State
-        self.start_frame = None
+        # Timeline information.
+        self.start_frame = constants.VL_START_FRAME
         self.current_frame = None
         self.frame_count = 0
 
-        # Playback State
+        # Playback state.
         self.loop_enabled = False
         self.is_playing = False
 
-        # Active AOV
+        # Active render output.
         self.current_aov = "rgb"
 
-        # Frame Cache, Cache decoded frames for faster access.
+        # Cache playback data.
         self.cache = FrameCache(max_size=constants.VL_FRAME_CACHE_MAX_SIZE)
 
-        # Playback Timer
+        # Playback timer.
         self.timer = QtCore.QTimer()
         self.timer.timeout.connect(self.next_frame)
 
     def load(self, path):
+        """Load a USD stage.
 
+        Opens the stage, initializes playback information and emits the active stage for the viewer.
+
+        Args:
+            path (str):
+                Path to a USD file.
+
+        Returns:
+            None
+        """
+
+        # Create USD reader.
         self.reader = UsdReader(path)
+
+        # Initialize playback FPS.
         self.reader.set_fps(None)
 
-        # Timeline Setup
+        # Read timeline information.
         self.frame_count = self.reader.frame_count()
 
-        self.start_frame = constants.VL_START_FRAME + self.reader.start_frame()
+        self.start_frame = self.reader.start_frame()
         self.current_frame = self.start_frame
-        self.end_frame = self.start_frame + (self.frame_count - 1)
+        self.end_frame = self.reader.end_frame()
 
-        # Load First Frame
+        # Display first frame.
         self.update_frame()
 
+        # Notify viewer.
         self.active_stage.emit(self.reader.stage)
 
     def update_frame(self):
-        """Load and display current frame.
+        """Update the current timeline frame.
 
-        Frame update flow:
-            1. Check frame cache
-            2. Read frame if needed
-            3. Cache frame
-            4. Emit playback signals
+        Emits playback signals so the viewer updates the rendered stage.
 
-        Emits:
-            frame_ready:
-                Current image buffer.
-
-            frame_changed:
-                Current frame number.
-
-            cache_changed:
-                Cached frame list.
-
-        Notes:
-            Cached frames avoid repeated disk reads.
+        Returns:
+            None
         """
-        # Validate Reader
+
+        # Validate reader.
         if not self.reader:
             return
 
-        # Emit Viewer Signals
+        # Notify viewer.
         self.frame_ready.emit(self.current_frame)
         self.frame_changed.emit(self.current_frame)
 
     def next_frame(self):
+        """Advance playback to the next frame.
+
+        Handles looping and playback completion.
+
+        Returns:
+            None
+        """
+
+        # Ignore when paused.
         if not self.is_playing:
             return
 
+        # Advance timeline.
         self.current_frame += 1
 
-        if self.current_frame >= self.end_frame:
-            if self.loop_enabled:  # Loop Playback
+        # Check playback limits.
+        if self.current_frame >= self.end_frame + 1:
+            if self.loop_enabled:
+                # Restart playback.
                 self.current_frame = self.start_frame
             else:
+                # Stop at last frame.
                 self.current_frame = self.end_frame
                 self.pause()
 
+        # Refresh viewer.
         self.update_frame()
-
-        return
 
     def toggle_play_pause(self):
         """Toggle playback state.
@@ -1906,8 +1959,7 @@ class UsdPlayer(BasePlayer):
     def play(self):
         """Start playback.
 
-        Starts QTimer-based playback using the
-        current FPS value.
+        Starts QTimer-based playback using the current FPS value.
 
         Behavior:
             - Starts playback timer
@@ -1979,7 +2031,7 @@ class UsdPlayer(BasePlayer):
         self.current_frame += 1
 
         # Wrap Timeline
-        if self.current_frame >= constants.VL_START_FRAME + self.frame_count:
+        if self.current_frame >= (self.end_frame + 1):
             self.current_frame = self.start_frame
 
         # Refresh Viewer Frame
@@ -2000,12 +2052,12 @@ class UsdPlayer(BasePlayer):
         if not self.reader:
             return
 
-        # Wrap Timeline
-        if self.current_frame <= self.start_frame:
-            self.current_frame = constants.VL_START_FRAME + self.frame_count
-
         # Step Backward
         self.current_frame -= 1
+
+        # Wrap Timeline
+        if self.current_frame <= (self.start_frame - 1):
+            self.current_frame = self.end_frame
 
         # Refresh Viewer Frame
         self.update_frame()
@@ -2048,6 +2100,31 @@ class UsdPlayer(BasePlayer):
         self.update_frame()
 
     def set_fps(self, fps):
+        """Override the playback frame rate.
+
+        Placeholder for future custom playback-speed support.
+
+        Args:
+            fps (float):
+                Desired playback FPS.
+
+        Returns:
+            None
+        """
+        pass
+
+    def set_aov(self, aov):
+        """Set the active render output.
+
+        Placeholder for future Hydra AOV switching.
+
+        Args:
+            aov (str):
+                Render output name.
+
+        Returns:
+            None
+        """
         pass
 
 

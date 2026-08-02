@@ -423,9 +423,8 @@ class MainWindow(QtWidgets.QMainWindow):
             self.player.reader.media_type, self.player.reader.get_available_aovs()
         )
 
-        # Update timeline range
         self.viewframe.timeline.set_range(
-            constants.VL_START_FRAME, constants.VL_START_FRAME + (self.player.frame_count - 1)
+            self.player.reader.start_frame(), self.player.reader.end_frame()
         )
 
         self.viewframe.timelineToolbarLayout.playPauseButton.switch(False)

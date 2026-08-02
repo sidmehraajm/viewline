@@ -1,4 +1,4 @@
-# 1. Create Review Notes 
+# 1. Review Notes 
 
 ![review](demo/review-notes.gif)
 
@@ -10,7 +10,7 @@
 
 ---
 
-# 3. Diplay Filters
+# 3. Display Filters
 
 ![review](demo/viewline_filter.gif)
 

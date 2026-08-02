@@ -319,6 +319,28 @@ class MovieReader(object):
 
         return result
 
+    def start_frame(self):
+        """Return the first frame of the sequence list.
+
+        Returns:
+            int:
+                Start time code.
+        """
+
+        # Read start frame.
+        return constants.VL_START_FRAME
+
+    def end_frame(self):
+        """Return the last frame of the sequence list.
+
+        Returns:
+            int:
+                End time code.
+        """
+
+        # Read end frame.
+        return constants.VL_START_FRAME + (self.frame_count() - 1)
+
     def frame_count(self):
         """
         Return the total number of video frames.
@@ -515,6 +537,28 @@ class SequenceReader(object):
 
         files = utils.getSequence(path)
         return files
+
+    def start_frame(self):
+        """Return the first frame of the sequence list.
+
+        Returns:
+            int:
+                Start time code.
+        """
+
+        # Read start frame.
+        return constants.VL_START_FRAME
+
+    def end_frame(self):
+        """Return the last frame of the sequence list.
+
+        Returns:
+            int:
+                End time code.
+        """
+
+        # Read end frame.
+        return constants.VL_START_FRAME + (self.frame_count() - 1)
 
     def frame_count(self):
         """Return sequence frame count.
