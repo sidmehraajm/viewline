@@ -133,8 +133,9 @@ class Versions
             "type": "User"
         },
         "image": "./render/shot-101/shot-101.png",
-        "media": "./render/shot-101/shot-101.mp4"
-    },
+        "media": "./render/shot-101/shot-101.mp4",
+        "usd": "./render/shot-101/shot-101.usd"
+    }
 ```
 
 

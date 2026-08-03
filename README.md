@@ -7,6 +7,12 @@ This project is to provide a lightweight, extensible, and production-friendly fr
 
 <img width="1848" height="958" alt="image" src="https://github.com/user-attachments/assets/c113466d-2739-4dce-abb7-c966797285ee" />
 
+---
+
+## Docs
+<https://subing85.github.io/viewline/index.html>
+
+---
 
 ## Core Responsibilities
 * Review image sequences and movie files.
@@ -364,18 +370,7 @@ Known limitations:
 ## Playback
 
 * Threaded decoding
-* Async frame prefetch
 * Smart frame cache
-* GPU upload pipeline
-
-## Viewer
-
-* OpenGL texture rendering
-* GPU OCIO transforms
-* Zoom
-* Pan
-* Fit modes
-* Pixel inspection
 
 ## Timeline
 
@@ -388,14 +383,11 @@ Known limitations:
 ## EXR Features
 
 * Layer browser
-* AOV switching
 * Deep EXR support
 * Metadata viewer
-* Multi-part EXR support
 
 ## Integrations
 
-* USD pipelines
 * FFmpeg render export
 * Editorial workflow
 
@@ -407,6 +399,8 @@ Subin Gopi *subing85@gmail.com*
 ---
 # License
 
+<p style="text-align: justify;">
 This project is intended as a free educational and production workflow framework for the animation and VFX industry.
+</p>
 
 ---
