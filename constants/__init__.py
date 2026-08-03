@@ -113,7 +113,7 @@ VL_TOOL_NAME = "MC - Viewline"
 
 VL_TOOL_ICON = "mc-viewline"
 
-VL_VERSION = "0.0.1-beta.1"
+VL_VERSION = "0.0.1-beta.3"
 
 VS_TOOL_NAME = "MC - Viewspan"
 
