@@ -264,6 +264,12 @@ class GLViewer(QtOpenGLWidgets.QOpenGLWidget):
         Removes all active sketch annotations and requests the viewer to repaint the cleared state.
         """
 
+        # Skip GL operations until the widget has a valid OpenGL context
+        # (e.g. clear() called during startup before the viewport is shown).
+        if not self.isValid():
+            self.sketch.clear_all()
+            return
+
         # Make the OpenGL context current before issuing OpenGL commands.
         self.makeCurrent()
 

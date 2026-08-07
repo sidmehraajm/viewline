@@ -1,0 +1,17 @@
+# Viewline runtime dependencies (Python 3.10, images + movies)
+# Note: widgets import pxr at module load, so the USD python bindings are
+# required even for image/movie review. usd-core is the prebuilt PyPI wheel
+# (no source build). Full USD *scene* review may want OpenUSD 26.05 to match,
+# but usd-core is enough to launch and review images/movies.
+usd-core
+PySide6==6.9.0
+PyOpenGL==3.1.9
+numpy==1.26.4
+av==17.0.0
+OpenImageIO==3.0.4.0
+opencolorio==2.5.0
+pyqtdarktheme==2.1.0
+requests==2.32.2
+
+# AYON production tracking integration
+ayon-python-api

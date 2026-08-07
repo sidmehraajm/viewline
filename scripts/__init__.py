@@ -137,12 +137,21 @@ class Versions(object):
     """
 
     @classmethod
-    def get(cls, project):
+    def get(cls, project, shot=None, task=None, status=None):
         """Return versions/media data for project.
 
         Args:
             project (dict):
                 Project dictionary.
+
+            shot (dict, optional):
+                Entity/shot filter. The 'All' entry (id is None) means no filter.
+
+            task (dict, optional):
+                Task filter. The 'All' entry (id is None) means no filter.
+
+            status (dict, optional):
+                Status filter. The 'All' entry (id is None) means no filter.
 
         Returns:
             list:
@@ -196,10 +205,94 @@ class Versions(object):
             )
         )
 
+        # Optional Shot (entity) filter. 'All' entry has id None.
+        shot_id = (shot or {}).get("id") if shot else None
+        if shot_id is not None:
+            versions_data = [
+                v for v in versions_data if (v.get("entity") or {}).get("id") == shot_id
+            ]
+
+        # Optional Task filter. 'All' entry has id None.
+        task_id = (task or {}).get("id") if task else None
+        if task_id is not None:
+            versions_data = [
+                v for v in versions_data if (v.get("sg_task") or {}).get("id") == task_id
+            ]
+
+        # Optional Status filter. 'All' entry has id None.
+        status_value = None
+        if status and status.get("id") not in (None, "", "all", "ALL"):
+            status_value = status.get("value") or status.get("code")
+        if status_value is not None:
+            versions_data = [
+                v for v in versions_data if v.get("sg_status_list") == status_value
+            ]
+
         # Sort Versions By Creation Date
         result = sorted(versions_data, key=lambda k: (k["created_at"]), reverse=True)
 
         return result
+
+
+class Shots(object):
+    """Entity/shot provider (JSON demo). Derived from versions.json."""
+
+    @classmethod
+    def get(cls, project):
+        versions = Versions.get(project)
+        result = []
+        seen = set()
+        for v in versions:
+            entity = v.get("entity") or {}
+            eid = entity.get("id")
+            if eid in seen:
+                continue
+            seen.add(eid)
+            result.append(
+                {
+                    "type": entity.get("type") or "Shot",
+                    "id": eid,
+                    "name": entity.get("name"),
+                    "path": entity.get("name"),
+                }
+            )
+        result.sort(key=lambda k: (k.get("name") or ""))
+        return result
+
+
+class Tasks(object):
+    """Task provider (JSON demo). Derived from versions.json."""
+
+    @classmethod
+    def get(cls, project, shot=None):
+        versions = Versions.get(project, shot=shot)
+        result = []
+        seen = set()
+        for v in versions:
+            task = v.get("sg_task") or {}
+            tid = task.get("id")
+            if tid in seen:
+                continue
+            seen.add(tid)
+            result.append(
+                {
+                    "type": "Task",
+                    "id": tid,
+                    "name": task.get("name"),
+                }
+            )
+        result.sort(key=lambda k: (k.get("name") or ""))
+        return result
+
+
+class Statuses(object):
+    """Status provider (JSON demo). Returns constants.STATUS_LIST."""
+
+    @classmethod
+    def get(cls, project):
+        from viewline import constants
+
+        return list(constants.STATUS_LIST)
 
 
 class Review(object):
@@ -401,6 +494,32 @@ class Review(object):
             result.append(node_content)
 
         return True, result
+
+
+# ---------------------------------------------------------------------------
+# Backend dispatch
+# ---------------------------------------------------------------------------
+# When AYON is configured, replace the JSON demo providers above with the
+# AYON-backed providers. Controlled by env (set in run-viewline.bat):
+#   VIEWLINE_BACKEND=ayon   (or simply having AYON_SERVER_URL set)
+# If the AYON provider fails to import, we keep the JSON demo providers so the
+# player still runs.
+import os as _os
+
+if _os.getenv("VIEWLINE_BACKEND", "").lower() == "ayon" or _os.getenv("AYON_SERVER_URL"):
+    try:
+        from viewline.scripts.ayon_provider import (
+            Projects as Projects,
+            Versions as Versions,
+            Shots as Shots,
+            Tasks as Tasks,
+            Statuses as Statuses,
+            Review as Review,
+        )
+    except Exception:
+        import traceback as _tb
+
+        _tb.print_exc()
 
 
 if __name__ == "__main__":

@@ -59,6 +59,7 @@ from viewline.widgets.recaps import RecapsWidget
 from viewline.widgets.styles import SetStylesheet
 from viewline.widgets.labels import CopyrightLabel
 from viewline.widgets.playlist import PlaylistWidget
+from viewline.widgets.playlist import BrowserBar
 
 from viewline.widgets.layouts import VerticalLayout
 from viewline.widgets.layouts import HorizontalLayout
@@ -141,11 +142,15 @@ class MainWindow(QtWidgets.QMainWindow):
         # Main vertical layout
         self.verticallayout = VerticalLayout(self.centralwidget, space=10, margins=(10, 10, 10, 10))
 
+        # Top selection bar (Project / Shot / Task / Status / Load)
+        self.browserBar = BrowserBar(self)
+        self.verticallayout.addWidget(self.browserBar)
+
         # Main horizontal splitter
         self.splitter = HorizontalSplitter(self)
         self.verticallayout.addWidget(self.splitter)
 
-        # Playlist Area
+        # Playlist Area (version list only)
         self.playlistWidget = PlaylistWidget(self)
         self.splitter.addWidget(self.playlistWidget)
 
@@ -154,6 +159,15 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.recapsWidget = RecapsWidget(self)
         self.splitter.addWidget(self.recapsWidget)
+
+        # Sensible default proportions; all panels stay user-resizable.
+        self.playlistWidget.setMinimumWidth(160)
+        self.recapsWidget.setMinimumWidth(220)
+        self.splitter.setStretchFactor(0, 0)
+        self.splitter.setStretchFactor(1, 1)
+        self.splitter.setStretchFactor(2, 0)
+        self.splitter.setChildrenCollapsible(True)
+        self.splitter.setSizes([260, 880, 340])
 
         # Footer
         self.horizontallayout_footer = HorizontalLayout(None, space=10, margins=(0, 0, 0, 0))
@@ -177,6 +191,14 @@ class MainWindow(QtWidgets.QMainWindow):
         self.playlistWidget.project_changed.connect(self.set_current_project)
         self.playlistWidget.select_media.connect(self.play_from_playlist)
 
+        # Top browser bar: cascade + manual load
+        self.browserBar.project_changed.connect(self.set_current_project)
+        self.browserBar.project_changed.connect(self._set_recaps_statuses)
+        self.browserBar.load_requested.connect(self.playlistWidget.load)
+
+        # Cascade the initial project (populates dropdowns; no auto-load)
+        self.browserBar.set_default_project(index=0)
+
         # --------------------------------------------------------------------
         # Player Signal Connections
         # --------------------------------------------------------------------
@@ -189,6 +211,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.player.frame_changed.connect(self.viewframe.timeline.set_current_frame)
         self.player.frame_changed.connect(self.viewframe.viewer2d.set_current_frame)
         self.player.frame_changed.connect(self.viewframe.viewer3d.set_current_frame)
+        self.player.frame_changed.connect(
+            self.viewframe.timelineToolbarLayout.set_current_frame
+        )
 
         self.player.cache_changed.connect(self.viewframe.timeline.set_cached_frames)
 
@@ -262,6 +287,9 @@ class MainWindow(QtWidgets.QMainWindow):
         )
 
         self.recapsWidget.inputWidget.trigger_snapshot.connect(self.render_snapshot)
+        self.recapsWidget.inputWidget.request_annotation_snapshot.connect(
+            self.render_annotation_snapshot
+        )
         self.viewframe.viewer2d.render_finished.connect(
             self.recapsWidget.inputWidget.snapshot_attachment
         )
@@ -273,6 +301,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # Viewer Timeline Toolbar Layout Signal Connections
         # --------------------------------------------------------------------
         self.viewframe.timelineToolbarLayout.trigger_timeline.connect(self.trigger_timeline)
+        self.viewframe.timelineToolbarLayout.goto_frame.connect(self.goto_frame)
         self.viewframe.timelineToolbarLayout.fps_chanaged.connect(self.update_fps)
         self.viewframe.timelineToolbarLayout.volume_changed.connect(self.player.volume_changed)
 
@@ -325,6 +354,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.current_project = project
         self.viewframe.viewer2d.clear()
         self.viewframe.viewer3d.clear()
+
+    def _set_recaps_statuses(self, project):
+        """Populate the review Status dropdown with the project's AYON statuses."""
+        try:
+            self.recapsWidget.inputWidget.statusTypeCombobox.setStatuses(project)
+        except Exception:
+            LOGGER.exception("Failed to set recaps statuses")
 
     def play_from_playlist(self, play, context):
         """
@@ -467,6 +503,13 @@ class MainWindow(QtWidgets.QMainWindow):
         # Sync FPS display
         self.reset_video_fps()
 
+    def goto_frame(self, frame):
+        """Jump playback to a specific frame (from the toolbar frame field)."""
+        try:
+            self.player.seek(int(frame))
+        except Exception:
+            LOGGER.exception("Could not go to frame %s", frame)
+
     def trigger_timeline(self, typed, enabled):
         if typed == "backward":
             self.backward_frame()
@@ -550,6 +593,25 @@ class MainWindow(QtWidgets.QMainWindow):
         filepath = utils.pathResolver(directory, filename=filename)
 
         self.viewframe.viewer.save_frame(filepath, post_process=True)
+
+    def render_annotation_snapshot(self, directory, extension="png"):
+        """Save the current frame ONLY if it has annotation strokes.
+
+        Triggered on review submit so drawings are auto-attached to the comment
+        without the artist having to press the snapshot button. Saving emits
+        render_finished, which adds the image as an attachment row.
+        """
+        viewer = self.viewframe.viewer
+        if not viewer or not viewer.current_frame:
+            return
+
+        sketch = getattr(viewer, "sketch", None)
+        if not sketch or not sketch.has_strokes():
+            return
+
+        filename = f"annotated.{viewer.current_frame:04d}.{extension}"
+        filepath = utils.pathResolver(directory, filename=filename)
+        viewer.save_frame(filepath, post_process=True)
 
     def update_fps(self, context):
         """

@@ -70,10 +70,23 @@ from PySide6 import QtCore
 from OpenGL import GL
 
 from pxr import Gf
-from pxr import Glf
 from pxr import Usd
 from pxr import UsdGeom
-from pxr import UsdImagingGL
+
+# Glf and UsdImagingGL are part of the OpenUSD imaging/GL stack, which is NOT
+# included in the prebuilt `usd-core` PyPI wheel. Make them optional so Viewline
+# can launch for image/movie review without a full OpenUSD build. USD 3D
+# viewport rendering will only be available when a full imaging-enabled USD is
+# installed.
+try:
+    from pxr import Glf
+    from pxr import UsdImagingGL
+
+    HAS_USD_IMAGING = True
+except ImportError:
+    Glf = None
+    UsdImagingGL = None
+    HAS_USD_IMAGING = False
 
 from viewline import logger
 
@@ -310,6 +323,14 @@ class GLViewer3d(GLViewer):
         """
         # Clear common viewer state and the OpenGL framebuffer.
         # super().clear()
+
+        # USD imaging (Glf/UsdImagingGL) is not available in the usd-core wheel.
+        # Without it there is no 3D engine to reset, so reset lightweight state
+        # and bail out (image/movie review does not use this viewport).
+        if not HAS_USD_IMAGING:
+            self.stage = None
+            self.current_frame = None
+            return
 
         # Make this widget's OpenGL context current.
         self.makeCurrent()

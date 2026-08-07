@@ -7,10 +7,19 @@ from PySide6 import QtOpenGLWidgets
 from OpenGL import GL
 
 from pxr import Gf
-from pxr import Glf
 from pxr import Usd
 from pxr import UsdGeom
-from pxr import UsdImagingGL
+
+# Optional OpenUSD imaging/GL stack (not in the `usd-core` wheel). See viewer3d.py.
+try:
+    from pxr import Glf
+    from pxr import UsdImagingGL
+
+    HAS_USD_IMAGING = True
+except ImportError:
+    Glf = None
+    UsdImagingGL = None
+    HAS_USD_IMAGING = False
 
 from viewline import constants
 

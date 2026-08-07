@@ -143,6 +143,7 @@ from widgets.pixmaps import ImageDataPixmap
 from viewline.widgets.buttons import TxtButton
 from viewline.widgets.buttons import OpenButton
 from viewline.widgets.buttons import LoopButton
+from viewline.widgets.buttons import TextButton
 from viewline.widgets.buttons import MoveButton
 from viewline.widgets.buttons import UndoButton
 from viewline.widgets.buttons import OcioButton
@@ -1008,6 +1009,9 @@ class TimelineToolbarLayout(HorizontalLayout):
     # Signal emitted when volume value changes
     volume_changed = QtCore.Signal(float)
 
+    # Signal emitted when the user requests a jump to a specific frame
+    goto_frame = QtCore.Signal(int)
+
     def __init__(self, parent, *args, **kwargs):
         """
         Initialize timeline toolbar layout.
@@ -1049,6 +1053,21 @@ class TimelineToolbarLayout(HorizontalLayout):
             None, tooltip="Loop the timeline (Ctrl+L)", width=32, height=32
         )
         self.addWidget(self.loopButton)
+
+        # Current-frame field: shows the current frame; type a frame + Enter
+        # (or click Go) to jump there.
+        self.frameEdit = QtWidgets.QLineEdit(None)
+        self.frameEdit.setValidator(QtGui.QIntValidator(0, 10_000_000, self.frameEdit))
+        self.frameEdit.setFixedWidth(60)
+        self.frameEdit.setAlignment(QtCore.Qt.AlignCenter)
+        self.frameEdit.setToolTip("Current frame — type a frame and press Enter to go")
+        self.frameEdit.returnPressed.connect(self._emit_goto)
+        self.addWidget(self.frameEdit)
+
+        self.goButton = TextButton(None, label="Go", toolTip="Go to frame")
+        self.goButton.setFixedWidth(36)
+        self.goButton.clicked.connect(self._emit_goto)
+        self.addWidget(self.goButton)
 
         # Left spacer
         self.horizontalspacer1 = HorizontalSpacer()
@@ -1137,6 +1156,25 @@ class TimelineToolbarLayout(HorizontalLayout):
 
     def volume_control(self, value):
         self.volume_changed.emit(value / 100)
+
+    def set_current_frame(self, frame):
+        """Update the frame field to reflect the current playback frame."""
+        # Don't clobber the field while the user is typing in it.
+        if self.frameEdit.hasFocus():
+            return
+        self.frameEdit.setText(str(int(frame)))
+
+    def _emit_goto(self):
+        """Emit a jump request for the frame typed into the field."""
+        text = self.frameEdit.text().strip()
+        if text == "":
+            return
+        try:
+            frame = int(text)
+        except ValueError:
+            return
+        self.goto_frame.emit(frame)
+        self.frameEdit.clearFocus()
 
     def reset_fps(self, typed, fps):
         """

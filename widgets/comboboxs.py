@@ -381,6 +381,126 @@ class ProjectCombobox(ContextCombobox):
         self.setItems(contextList=result)
 
 
+class ShotCombobox(ContextCombobox):
+    """Shot / entity (folder) selection combobox.
+
+    Signals:
+        shot_changed(dict): Emits the selected shot context ('All' = no filter).
+    """
+
+    shot_changed = QtCore.Signal(dict)
+
+    def __init__(self, parent, **kwargs):
+        kwargs.setdefault("key", "name")
+        super(ShotCombobox, self).__init__(parent, **kwargs)
+        self.setFont(Font(15, bold=False))
+        self.setStyleSheet("QComboBox {background: transparent; border: none;}")
+        self.setToolTip("Shot / Entity")
+
+    def indexChange(self, index):
+        super().indexChange(index)
+        self.shot_changed.emit(self.context)
+
+    def setShots(self, project):
+        """Populate shots for the project. Prepends an 'All' entry.
+
+        Signals are blocked during population; the caller drives the reload.
+        """
+        result = [{"type": "All", "id": None, "name": "All", "path": "All"}]
+        if project:
+            try:
+                with WaitCursor():
+                    from scripts import Shots
+
+                    result += Shots.get(project)
+            except Exception:
+                pass
+
+        self.blockSignals(True)
+        self.setItems(contextList=result)
+        self.setCurrentIndex(0)
+        self.context = result[0]
+        self.blockSignals(False)
+
+
+class TaskCombobox(ContextCombobox):
+    """Task selection combobox.
+
+    Signals:
+        task_changed(dict): Emits the selected task context ('All' = no filter).
+    """
+
+    task_changed = QtCore.Signal(dict)
+
+    def __init__(self, parent, **kwargs):
+        kwargs.setdefault("key", "name")
+        super(TaskCombobox, self).__init__(parent, **kwargs)
+        self.setFont(Font(15, bold=False))
+        self.setStyleSheet("QComboBox {background: transparent; border: none;}")
+        self.setToolTip("Task")
+
+    def indexChange(self, index):
+        super().indexChange(index)
+        self.task_changed.emit(self.context)
+
+    def setTasks(self, project, shot=None):
+        """Populate tasks for the project/shot. Prepends an 'All' entry."""
+        result = [{"type": "All", "id": None, "name": "All"}]
+        if project:
+            try:
+                with WaitCursor():
+                    from scripts import Tasks
+
+                    result += Tasks.get(project, shot)
+            except Exception:
+                pass
+
+        self.blockSignals(True)
+        self.setItems(contextList=result)
+        self.setCurrentIndex(0)
+        self.context = result[0]
+        self.blockSignals(False)
+
+
+class StatusFilterCombobox(ContextCombobox):
+    """Status filter combobox for the browser bar.
+
+    Signals:
+        status_changed(dict): Emits selected status ('All' = no filter).
+    """
+
+    status_changed = QtCore.Signal(dict)
+
+    def __init__(self, parent, **kwargs):
+        kwargs.setdefault("key", "code")
+        super(StatusFilterCombobox, self).__init__(parent, **kwargs)
+        self.setFont(Font(15, bold=False))
+        self.setStyleSheet("QComboBox {background: transparent; border: none;}")
+        self.setToolTip("Status filter")
+
+    def indexChange(self, index):
+        super().indexChange(index)
+        self.status_changed.emit(self.context)
+
+    def setStatuses(self, project):
+        """Populate statuses for the project. Prepends an 'All' entry."""
+        result = [{"type": "All", "id": None, "code": "All", "value": None}]
+        if project:
+            try:
+                with WaitCursor():
+                    from scripts import Statuses
+
+                    result += Statuses.get(project)
+            except Exception:
+                pass
+
+        self.blockSignals(True)
+        self.setItems(contextList=result)
+        self.setCurrentIndex(0)
+        self.context = result[0]
+        self.blockSignals(False)
+
+
 class ReviewTypeCombobox(ContextCombobox):
     """Combo box for selecting a review type.
 
@@ -437,6 +557,26 @@ class StatusTypeCombobox(ContextCombobox):
 
         # Select the default status.
         self.setValue(self.defatlt)
+
+    def setStatuses(self, project):
+        """Repopulate with the project's AYON statuses (fallback: constants)."""
+        result = None
+        if project:
+            try:
+                from scripts import Statuses
+
+                data = Statuses.get(project)
+                if data:
+                    result = data
+            except Exception:
+                result = None
+
+        if not result:
+            result = constants.STATUS_LIST
+
+        self.blockSignals(True)
+        self.setItems(contextList=result)
+        self.blockSignals(False)
 
     def value(self, key=None):
         """Return the selected status value.

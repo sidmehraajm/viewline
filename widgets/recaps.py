@@ -395,6 +395,7 @@ class InputWidget(QtWidgets.QFrame):
     """
 
     trigger_snapshot = QtCore.Signal(str)
+    request_annotation_snapshot = QtCore.Signal(str)
     submit_finished = QtCore.Signal(dict)
 
     def __init__(self, parent, *args, **kwargs):
@@ -581,6 +582,10 @@ class InputWidget(QtWidgets.QFrame):
         self.versionLabel.setValue("\n".join(values))
 
         self.reviewTypeCombobox.setValue(0)
+
+        # Populate statuses from the version's project so options match AYON,
+        # then select the version's current status.
+        self.statusTypeCombobox.setStatuses(self.context.get("project"))
         self.statusTypeCombobox.setValue(status)
 
     def setAttachment(self):
@@ -688,6 +693,12 @@ class InputWidget(QtWidgets.QFrame):
         if result.replay == MessageBox.No:
             LOGGER.warning("Skip trigger check state package items.")
             return
+
+        # Auto-capture the current frame's drawings (if any) as an attachment.
+        # The handler only saves when the frame actually has annotation strokes,
+        # so plain frames are not attached.
+        snap_dir = utils.tempdir(subfolder=True)
+        self.request_annotation_snapshot.emit(snap_dir)
 
         # Build submission payload
         context = {

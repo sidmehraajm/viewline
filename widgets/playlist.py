@@ -106,6 +106,10 @@ from viewline.widgets.layouts import VerticalLayout
 from viewline.widgets.layouts import HorizontalLayout
 
 from viewline.widgets.comboboxs import ProjectCombobox
+from viewline.widgets.comboboxs import ShotCombobox
+from viewline.widgets.comboboxs import TaskCombobox
+from viewline.widgets.comboboxs import StatusFilterCombobox
+from viewline.widgets.buttons import TextButton
 from viewline.widgets.treewidgets import PlaylistTreewidget
 
 
@@ -170,42 +174,37 @@ class PlaylistWidget(QtWidgets.QWidget):
         # Main vertical layout
         self.verticallayout = VerticalLayout(self, space=5, margins=(0, 0, 0, 0))
 
-        self.projectsFrame = ProjectsFrame(self)
-        self.verticallayout.addWidget(self.projectsFrame)
-
-        # Playlist tree widget
+        # Playlist tree widget (selectors now live in the top BrowserBar)
         self.playlistTreewidget = PlaylistTreewidget(self)
         self.verticallayout.addWidget(self.playlistTreewidget)
-
-        # Signal Connections
-        self.projectsFrame.project_changed.connect(self.set_playlist)
 
         # Connect playlist interactions
         self.playlistTreewidget.itemClicked.connect(self.open_media)
         self.playlistTreewidget.itemDoubleClicked.connect(self.play_media)
 
-        # Emit initial project
-        self.projectsFrame.set_default_project(index=0)
-
-    def set_playlist(self, project):
+    def load(self, context):
         """
-        Update playlist versions based on selected project.
+        Populate the version list from a BrowserBar load request.
 
         Args:
-            project (dict):
-                Project context dictionary.
+            context (dict):
+                {"project": dict, "shot": dict|None,
+                 "task": dict|None, "status": dict|None}
         """
+        project = context.get("project")
         self.current_project = project
 
         with WaitCursor():
-            # Load project versions
             importlib.reload(scripts)
-            versions = scripts.Versions.get(self.current_project)
+            versions = scripts.Versions.get(
+                project,
+                context.get("shot"),
+                context.get("task"),
+                context.get("status"),
+            )
 
-        # Update playlist widget
         self.set_versions(versions)
-
-        self.project_changed.emit(self.current_project)
+        self.project_changed.emit(project)
 
     def set_versions(self, versions):
         """
@@ -248,128 +247,100 @@ class PlaylistWidget(QtWidgets.QWidget):
         self.select_media.emit(True, widgetitem.context)
 
 
-class ProjectsFrame(QtWidgets.QFrame):
+class BrowserBar(QtWidgets.QFrame):
     """
-    Project selection widget.
+    Top selection bar: Project / Shot / Task / Status + Load.
 
-    Displays the available projects, allows users to select the active project, and emits project change notifications to the application.
+    Lives above the viewer. Selecting a project cascades the shot, task and
+    status dropdowns but does NOT load versions; the version list is only
+    refreshed when the user presses Load.
 
     Signals:
         project_changed(dict):
-            Emitted whenever the active project changes.
+            Emitted when the active project changes (for viewer/recaps context).
+
+        load_requested(dict):
+            Emitted on Load with {"project", "shot", "task", "status"}.
     """
 
-    # Emitted when current project changes
     project_changed = QtCore.Signal(dict)
+    load_requested = QtCore.Signal(dict)
 
     def __init__(self, parent, *args, **kwargs):
-        """
-        Initialize project frame.
+        super(BrowserBar, self).__init__(parent)
 
-        Args:
-            parent (QtWidgets.QWidget):
-                Parent widget.
+        self.current_project = None
 
-            *args:
-                Additional positional arguments.
-
-            **kwargs:
-                Additional optional arguments.
-        """
-
-        # Initialize QFrame
-        super(ProjectsFrame, self).__init__(parent)
-
-        # Apply frame appearance
         self.setFrameShape(QtWidgets.QFrame.StyledPanel)
         self.setFrameShadow(QtWidgets.QFrame.Raised)
+        self.setSizePolicy(
+            QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed
+        )
 
-        # Build interface
         self.setupUi()
 
     def setupUi(self):
-        """
-        Build user interface.
+        self.horizontallayout = HorizontalLayout(self, space=8, margins=(8, 6, 8, 6))
 
-        Creates:
-
-            - Project thumbnail preview
-            - Project selection combobox
-
-        Connects project selection signals to the project update handler.
-        """
-
-        # Main horizontal layout
-        self.horizontallayout = HorizontalLayout(self, space=10, margins=(10, 10, 10, 10))
-
-        # --------------------------------------------------
-        # Project Thumbnail
-        # --------------------------------------------------
-        self.projectIconLabel = ProjectIconLabel(self)
-        self.horizontallayout.addWidget(self.projectIconLabel)
-
-        # --------------------------------------------------
-        # Project Combobox
-        # --------------------------------------------------
+        # Project
         self.projectCombobox = ProjectCombobox(self, key="name")
         self.projectCombobox.setProjects()
         self.horizontallayout.addWidget(self.projectCombobox)
 
-        # Listen for project changes
+        # Shot (entity)
+        self.shotCombobox = ShotCombobox(self, key="name")
+        self.horizontallayout.addWidget(self.shotCombobox)
+
+        # Task
+        self.taskCombobox = TaskCombobox(self, key="name")
+        self.horizontallayout.addWidget(self.taskCombobox)
+
+        # Status filter
+        self.statusCombobox = StatusFilterCombobox(self, key="code")
+        self.horizontallayout.addWidget(self.statusCombobox)
+
+        # Load button
+        self.loadButton = TextButton(self, label="Load", toolTip="Load versions")
+        self.loadButton.setMinimumWidth(80)
+        self.horizontallayout.addWidget(self.loadButton)
+
+        # Cascade only (no auto-load)
         self.projectCombobox.project_changed.connect(self.set_current_project)
+        self.shotCombobox.shot_changed.connect(self._on_shot_changed)
+        self.loadButton.clicked.connect(self._emit_load)
 
     def set_default_project(self, index=0):
-        """
-        Set default project.
-
-        Args:
-            index (int, optional):
-                Project index to activate.
-                Defaults to 0.
-        """
-
-        # No projects available
         if not self.projectCombobox.contextList:
             return
-
-        # Activate project
         self.set_current_project(self.projectCombobox.contextList[index])
 
-    def set_current_project(self, context, key="image"):
-        """
-        Set current active project.
+    def set_current_project(self, context):
+        """Cascade shot/task/status dropdowns for the selected project."""
+        self.current_project = context
 
-        Updates:
+        # Repopulate dependent dropdowns (signals blocked inside set* methods).
+        self.shotCombobox.setShots(context)
+        self.taskCombobox.setTasks(context, self.shotCombobox.getValue())
+        self.statusCombobox.setStatuses(context)
 
-            - Project thumbnail
-            - Current project context
-            - Project preview image
-
-        Emits:
-            project_changed(dict)
-
-        Args:
-            context (dict):
-                Project context dictionary.
-
-        Example:
-            >>> widget.set_current_project(project)
-        """
-
-        # --------------------------------------------------
-        # Update Thumbnail
-        # --------------------------------------------------
-        self.projectIconLabel.setThumbnail(context[key])
-
-        # --------------------------------------------------
-        # Store Thumbnail Pixmap
-        # --------------------------------------------------
-        # context["value"] = self.projectIconLabel.pixmap()
-
-        # --------------------------------------------------
-        # Notify Listeners
-        # --------------------------------------------------
+        # Notify listeners (viewer clear, recaps status list) but do not load.
         self.project_changed.emit(context)
+
+    def _on_shot_changed(self, shot):
+        """Repopulate tasks for the selected shot (no load)."""
+        self.taskCombobox.setTasks(self.current_project, shot)
+
+    def _emit_load(self):
+        if not self.current_project:
+            return
+        self.load_requested.emit(
+            {
+                "project": self.current_project,
+                "shot": self.shotCombobox.getValue(),
+                "task": self.taskCombobox.getValue(),
+                "status": self.statusCombobox.getValue(),
+            }
+        )
 
 
 if __name__ == "__main__":
